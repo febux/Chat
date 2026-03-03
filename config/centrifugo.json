@@ -1,0 +1,75 @@
+{
+  "log": {
+    "level": "info"
+  },
+
+  "http_server": {
+    "port": "5000",
+    "address": "0.0.0.0"
+  },
+
+  "client": {
+    "allowed_origins": [
+      "http://localhost:3000",
+      "http://localhost:5000"
+    ],
+    "ping_interval": "25s",
+    "pong_timeout": "8s",
+    "channel_limit": 128,
+    "connection_limit": 0,
+    "connection_rate_limit": 0,
+    "concurrency": 0,
+    "allow_anonymous_connect_without_token": false,
+    "disallow_anonymous_connection_tokens": false
+  },
+
+  "admin": {
+    "enabled": true
+  },
+
+  "debug": {
+    "enabled": false
+  },
+
+  "health": {
+    "enabled": true
+  },
+
+  "prometheus": {
+    "enabled": false,
+    "instrument_http_handlers": false
+  },
+
+  "swagger": {
+    "enabled": false
+  },
+
+  "http_stream": {
+    "enabled": true
+  },
+
+  "broker": {
+    "enabled": true,
+    "type": "nats",
+    "nats": {
+      "prefix": "centrifugo",
+      "allow_wildcards": false
+    }
+  },
+
+  "engine": {
+    "type": "memory"
+  },
+
+  "channel": {
+    "namespaces": [
+      {
+        "name": "chat",
+        "history_size": 0,
+        "history_ttl": 0,
+        "presence": true,
+        "join_leave": true
+      }
+    ]
+  }
+}

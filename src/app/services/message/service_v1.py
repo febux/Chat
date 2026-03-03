@@ -5,8 +5,7 @@ Message service implementation.
 from typing import Optional, Sequence
 from uuid import UUID
 
-from src.config.main import Settings
-from src.core.logger.app_logger import AppLogger
+from src.core.logger.logger_factory import logger_bind
 from src.database.sqlalchemy.orm_manager import RepositoryManagerMeta
 
 
@@ -17,13 +16,10 @@ class MessageService:
 
     def __init__(
         self,
-        app_config: Settings,
         orm_manager: RepositoryManagerMeta,
-        logger: AppLogger,
     ):
-        self.app_config = app_config
         self.orm_manager = orm_manager
-        self.logger = logger
+        self.logger = logger_bind("MessageService")
 
         self.message_repo = self.orm_manager.message
 

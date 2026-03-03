@@ -90,6 +90,7 @@ services:
     container_name: nats
     restart: always
     networks:
+      - broker_network
       - app_network
     environment:
       - "NATS_USER=${NATS_USER}"
@@ -102,6 +103,29 @@ services:
     volumes:
       - ./config/nats.conf:/etc/nats/nats.conf
       - nats-data:/data
+
+  centrifugo:
+    image: centrifugo/centrifugo
+    command: centrifugo -c config.json
+    environment:
+      CENTRIFUGO_ADMIN_PASSWORD: ${CENTRIFUGO_ADMIN_PASSWORD}
+      CENTRIFUGO_ADMIN_SECRET: ${CENTRIFUGO_ADMIN_SECRET}
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY}
+      CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_HTTP_API_KEY}
+      CENTRIFUGO_BROKER_NATS_URL: ${CENTRIFUGO_BROKER_NATS_URL}
+    volumes:
+      - ./config/centrifugo.json:/centrifugo/config.json
+    depends_on:
+      - nats
+    networks:
+      - broker_network
+    ports:
+      - "5000:5000"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    restart: unless-stopped
 
   redis:
     image: redis
@@ -225,6 +249,8 @@ volumes:
 
 networks:
   app_network:
+    driver: bridge
+  broker_network:
     driver: bridge
   metrics_network:
     driver: bridge

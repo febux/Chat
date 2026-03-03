@@ -145,6 +145,7 @@ up.local:
 		api \
 		redis \
 		nats \
+		centrifugo \
 		db
 
 up:
