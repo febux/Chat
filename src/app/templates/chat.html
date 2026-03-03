@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+</head>
+<body>
+    <div class="chat-app">
+
+        <!-- Шапка -->
+        <header class="chat-header">
+            <div class="header-left">
+                <button class="back-btn" id="backBtn">←</button>
+                <h1>Сообщения</h1>
+            </div>
+            <div class="header-right">
+                <span class="user-info" id="currentUser">Пользователь</span>
+                <button class="logout-btn" id="logoutBtn">Выйти</button>
+            </div>
+        </header>
+
+        <div class="chat-container">
+
+            <!-- Левая панель: список пользователей -->
+            <div class="users-panel">
+                <div class="users-header">
+                    <h3>Чаты</h3>
+                    <input type="text" id="searchUsers" placeholder="Поиск...">
+                </div>
+                <div class="users-list" id="usersList"></div>
+            </div>
+
+            <!-- Правая панель: область сообщений -->
+            <div class="chat-panel">
+
+                <!-- Пустое состояние -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">💬</div>
+                    <h3>Выберите собеседника</h3>
+                    <p>Чтобы начать общение, выберите пользователя из списка</p>
+                </div>
+
+                <!-- Активный чат -->
+                <div class="active-chat" id="activeChat" style="display: none;">
+                    <div class="chat-header-info">
+                        <div class="chat-user-info">
+                            <div class="user-avatar" id="chatAvatar">👤</div>
+                            <div>
+                                <h4 class="chat-username" id="chatUsername"></h4>
+                                <span class="chat-status" id="chatStatus">онлайн</span>
+                            </div>
+                        </div>
+                        <button class="chat-options">⋮</button>
+                    </div>
+
+                    <!-- Контейнер сообщений -->
+                    <div class="messages-container" id="messagesContainer"></div>
+
+                    <!-- Поле ввода сообщения -->
+                    <div class="message-input-container">
+                        <textarea id="messageInput" placeholder="Напишите сообщение..."></textarea>
+                        <button id="sendBtn" disabled>→</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контейнер для уведомлений -->
+    <div id="systemNotifications"></div>
+
+    <!-- Socket.IO клиент (локальный) -->
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <!-- Логика чата -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+        endpoint: "0.0.0.0:4318"
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "fastapi"
+          static_configs:
+            - targets: [ "api:10000" ]
+
+processors:
+  batch:
+
+exporters:
+  # NOTE: Prior to v0.86.0 use `logging` instead of `debug`.
+  debug:
+    verbosity: detailed
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [ otlp, prometheus ]  # принимаем метрики через OTLP и Prometheus receiver
+      processors: [ batch ]
+      exporters: [ prometheus ]
+    traces:
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ debug ]

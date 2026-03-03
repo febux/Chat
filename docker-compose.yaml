@@ -1,0 +1,232 @@
+services:
+  api:
+    env_file: ".env"
+    command:
+      - gunicorn
+      - --worker-class
+      - uvicorn.workers.UvicornWorker
+      - --workers
+      - "${WORKERS}"
+      - --worker-connections
+      - "${WORKER_CONNECTIONS}"
+      - --max-requests
+      - "${MAX_REQUESTS}"
+      - --max-requests-jitter
+      - "${MAX_REQUESTS_JITTER}"
+      - --timeout
+      - "${TIMEOUT}"
+      - --keep-alive
+      - "${KEEP_ALIVE}"
+      - --graceful-timeout
+      - "${GRACEFUL_TIMEOUT}"
+      - --bind
+      - "${SERVER_HOST}:${SERVER_PORT}"
+      - --log-level=${LOG_LEVEL}
+      - --preload
+      - src.app.main:app
+    build:
+      context: .
+      dockerfile: srv/backend/Dockerfile
+    restart: on-failure
+#    volumes:
+#      - app_logs:/app/logs
+    ports:
+      - "${SERVER_EXTERNAL_PORT}:${SERVER_PORT}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+      - metrics_network
+      - logs_network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fs http://localhost:${SERVER_PORT}/api/v1/healthcheck || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  manager:
+    build:
+      context: .
+      dockerfile: srv/manager/Dockerfile
+    restart: no
+    env_file: ".env"
+    volumes:
+      - ./migrations:/app/migrations
+    container_name: db-manager
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  db:
+    image: postgres:17
+    restart: on-failure
+    environment:
+      - POSTGRES_USER=$DATABASE_USER
+      - POSTGRES_PASSWORD=$DATABASE_PASSWORD
+      - POSTGRES_DB=$DATABASE_SCHEMA
+    ports:
+      - "${DATABASE_EXTERNAL_PORT}:${DATABASE_PORT}"
+    volumes:
+      - $DATABASE_VOLUME:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_SCHEMA}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  nats:
+    image: nats
+    container_name: nats
+    restart: always
+    networks:
+      - app_network
+    environment:
+      - "NATS_USER=${NATS_USER}"
+      - "NATS_PASS=${NATS_PASS}"
+    command: [ "--user", "${NATS_USER}", "--pass", "${NATS_PASS}", "-c", "/etc/nats/nats.conf" ]
+    ports:
+      - "4222:4222"   # основной порт для клиентов
+      - "8222:8222"   # порт для HTTP-мониторинга
+      - "6222:6222"   # кластерный порт (если нужно)
+    volumes:
+      - ./config/nats.conf:/etc/nats/nats.conf
+      - nats-data:/data
+
+  redis:
+    image: redis
+    hostname: redis
+    restart: on-failure
+    environment:
+      - REDIS_DEFAULT_PASSWORD=${REDIS_DEFAULT_PASSWORD}
+      - REDIS_USER=${REDIS_USERNAME}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    command: >
+      sh -c '
+        mkdir -p /usr/local/etc/redis &&
+        echo "bind 0.0.0.0" > /usr/local/etc/redis/redis.conf &&
+        echo "requirepass ${REDIS_DEFAULT_PASSWORD}" >> /usr/local/etc/redis/redis.conf &&
+        echo "appendonly yes" >> /usr/local/etc/redis/redis.conf &&
+        echo "appendfsync everysec" >> /usr/local/etc/redis/redis.conf &&
+        echo "user default on nopass ~* +@all" > /usr/local/etc/redis/users.acl &&
+        echo "user ${REDIS_USERNAME} on >${REDIS_PASSWORD} ~* &* +@all" >> /usr/local/etc/redis/users.acl &&
+        redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
+      '
+    ports:
+      - "${REDIS_EXTERNAL_PORT}:${REDIS_PORT}"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: redis_insight
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis-insight-data:/data
+    depends_on:
+      - redis
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "${PROMETHEUS_EXTERNAL_PORT}:9090"
+    volumes:
+      - ./config/prometheus:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - metrics_network
+
+  otel_collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    volumes:
+      - ./config/collector_config.yaml:/etc/otelcol/config.yaml
+    command: [ "--config", "/etc/otelcol/config.yaml" ]
+    ports:
+      - "${OTEL_OTLP_GRPC_RECEIVER_EXTERNAL_PORT}:4317"   # OTLP gRPC receiver
+      - "${OTEL_OTLP_HTTP_RECEIVER_EXTERNAL_PORT}:4318"   # OTLP HTTP receiver
+      - "${OTEL_PROMETHEUS_METRICS_ENDPOINT_EXTERNAL_PORT}:8889"   # Prometheus metrics endpoint
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - metrics_network
+
+  filebeat:
+    image: elastic/filebeat:8.8.0
+    container_name: filebeat
+    user: root
+    volumes:
+      - app_logs:/var/log/api_logs:ro
+      - ./config/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - logs_network
+
+  logstash:
+    image: logstash:8.8.0
+    container_name: logstash
+    volumes:
+      - ./config/logstash/config.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./config/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./config/logstash/pipelines:/usr/share/logstash/config/pipelines:ro
+    environment:
+      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
+#      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+    ports:
+      - "${LOGSTASH_BEATS_EXTERANL_PORT}:5044"
+      - "${LOGSTASH_BEATS_ALT_EXTERANL_PORT}:5043"
+      - "${LOGSTASH_TCP_EXTERANL_PORT}:5000"
+      - "${LOGSTASH_MONITORING_EXTERANL_PORT}:9600"
+    depends_on:
+      - filebeat
+    networks:
+      - logs_network
+
+
+volumes:
+  redis-data:
+    driver: local
+  nats-data:
+    driver: local
+  redis-insight-data:
+    driver: local
+  prometheus_data: # Persist Prometheus data
+  db_data:         # Persist PostgreSQL data
+  app_logs:        # Persist application logs
+
+
+networks:
+  app_network:
+    driver: bridge
+  metrics_network:
+    driver: bridge
+  logs_network:
+    driver: bridge

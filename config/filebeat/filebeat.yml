@@ -1,0 +1,15 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/api_logs/*.log
+  multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+  multiline.negate: true
+  multiline.match: after
+
+#output.console:
+#  enabled: true
+#  pretty: true
+
+output.logstash:
+  hosts: ["logstash:5044"]
