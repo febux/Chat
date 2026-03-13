@@ -9,10 +9,10 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
-COPY uv.lock pyproject.toml /app/
+COPY src/backend/uv.lock src/backend/pyproject.toml /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=src/backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=src/backend/pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
 
@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 COPY migrations ./migrations
-COPY alembic.ini src/app/main.py ./
+COPY src/backend/alembic.ini ./
 COPY src ./src
 COPY config ./config
 

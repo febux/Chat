@@ -12,10 +12,10 @@ RUN groupadd --gid 1001 appuser \
 USER appuser
 
 WORKDIR /app
-COPY --chown=appuser:appuser uv.lock pyproject.toml /app/
+COPY --chown=appuser:appuser src/backend/uv.lock src/backend/pyproject.toml /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=src/backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=src/backend/pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
 
@@ -40,7 +40,7 @@ ENV GUNICORN_CMD_ARGS="--worker-tmp-dir /app/tmp"
 COPY --from=dependencies --chown=appuser:appuser /app /app
 RUN apt-get update && apt-get install -y --no-install-recommends wget curl logrotate
 
-COPY --chown=appuser:appuser src ./src
+COPY --chown=appuser:appuser src/backend ./src/backend
 COPY --chown=appuser:appuser config ./config
 
 # Place executables in the environment at the front of the path

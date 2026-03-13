@@ -9,10 +9,10 @@ import alembic_postgresql_enum
 
 from alembic import context
 
-from src.database.sqlalchemy.base import Base
-from src.database.sqlalchemy.session_manager import sessionmanager
+from src.backend.database import Base
+from src.backend.database.sqlalchemy.session_manager import sessionmanager
 # noinspection PyUnresolvedReferences
-from src.app.models import *
+from src.backend.app.models import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

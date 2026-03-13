@@ -8,6 +8,10 @@
     "address": "0.0.0.0"
   },
 
+  "api": {
+    "enabled": true
+  },
+
   "client": {
     "allowed_origins": [
       "http://localhost:3000",
@@ -68,7 +72,8 @@
         "history_size": 0,
         "history_ttl": 0,
         "presence": true,
-        "join_leave": true
+        "join_leave": true,
+        "allow_subscribe_for_client": true
       }
     ]
   }

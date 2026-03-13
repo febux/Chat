@@ -23,7 +23,7 @@ services:
       - "${SERVER_HOST}:${SERVER_PORT}"
       - --log-level=${LOG_LEVEL}
       - --preload
-      - src.app.main:app
+      - src.backend.app.main:app
     build:
       context: .
       dockerfile: srv/backend/Dockerfile
@@ -119,8 +119,9 @@ services:
       - nats
     networks:
       - broker_network
+      - app_network
     ports:
-      - "5000:5000"
+      - "${CENTRIFUGO_EXTERNAL_PORT}:${CENTRIFUGO_PORT}"
     ulimits:
       nofile:
         soft: 65535

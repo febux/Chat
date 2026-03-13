@@ -1,0 +1,232 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests", "docs"]
+
+[project]
+name = "fastapichat"
+version = "1.0.0"
+description = ""
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.12",
+    "httpx[http2]>=0.28.1",
+    "loguru>=0.7.3",
+    "pydantic-settings>=2.8.1",
+    "python-dotenv>=1.0.1",
+    "uvicorn[standard]>=0.34.0",
+    "pyjwt>=2.8.0",
+    "tenacity>=8.2.3",
+    "pydantic>2.0",
+    "emails<1.0,>=0.6",
+    "psycopg[binary]<4.0.0,>=3.1.13",
+    "sqlalchemy[asyncio]>=2.0.40",
+    "cryptography>=44.0.0",
+    "slowapi>=0.1.9",
+    "setuptools>=80.9.0", # required for fastapi-cache2
+    "asyncpg>=0.29.0",
+    "gunicorn>=23.0.0",
+    "psutil>=7.0.0",
+    "click>=8.2.1",
+    "orjson>=3.11.3",
+    "itsdangerous>=2.2.0",
+    "prometheus-client>=0.23.1",
+    "prometheus-fastapi-instrumentator>=7.1.0",
+    "rich>=14.1.0",
+    "fastapi-socketio>=0.0.10",
+    "fastapi-mail[redis]>=1.5.0",
+    "uuid>=1.30",
+    "passlib==1.7.4",
+    "starlette-compress>=1.6.1",
+    "opentelemetry-sdk>=1.38.0",
+    "opentelemetry-api>=1.38.0",
+    "opentelemetry-exporter-otlp>=1.38.0",
+    "opentelemetry-instrumentation-fastapi>=0.59b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.59b0",
+    "opentelemetry-instrumentation-httpx>=0.59b0",
+    "sentry-sdk>=2.44.0",
+    "uvloop>=0.22.1",
+    "fastapi-guard>=4.2.2",
+    "alembic>=1.13.3",
+    "redis[hiredis]>=4.6.0",
+    "pydantic[email]>=2.9.2",
+    "bcrypt==4.2.0",
+    "python-jose>=3.3.0",
+    "websockets>=13.1",
+    "jinja2>=3.1.4",
+    "argon2-cffi>=25.1.0",
+    "python-socketio[asyncio-server]>=5.16.1",
+    "alembic-postgresql-enum>=1.10.0",
+    "nats-py>=2.14.0",
+]
+
+[dependency-groups]
+dev = [
+    "bandit[toml]>=1.8.3",
+    "black>=25.1.0",
+    "interrogate>=1.7.0",
+    "isort>=6.0.1",
+    "pre-commit>=4.1.0",
+    "ruff>=0.11.0",
+    "sphinx>=8.2.3",
+    "pytest>=7.4.3",
+    "mypy>=1.16.0",
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "fakeredis>=2.31.1",
+    "trio>=0.30.0",
+    "pysentry-rs>=0.3.11",
+    "pytest-cov>=7.0.0",
+    "pyright>=1.1.407",
+]
+
+[project.scripts]
+gunicorn_config = "scripts.gunicorn.gunicorn_config_generator:generate"
+api_key_generate = "scripts.crypto.api_key_generator:generate_key"
+base64_aes_key_generate = "scripts.crypto.base64_aes_key_generator:generate"
+
+[tool.pyright]
+include = ["src"]
+exclude = [
+    "**/__pycache__",
+]
+ignore = []
+defineConstant = { DEBUG = true }
+stubPath = "src/stubs"
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+executionEnvironments = [
+  { root = "src", pythonVersion = "3.12", pythonPlatform = "Linux", reportMissingImports = "none", extraPaths = ["src/tests" ]},
+]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = false
+ignore-nested-functions = true
+ignore-nested-classes = true
+ignore-setters = true
+ignore-overloaded-functions = true
+fail-under = 80
+exclude = ["tests", "docs", "config"]
+# example regex
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
+ext = []
+style = "sphinx"
+# possible values: 0 (minimal output), 1 (-v), 2 (-vv)
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
+omit-covered-files = false
+# output file logation
+#generate-badge = "."
+#badge-format = "svg"
+
+[tool.bandit]
+exclude_dirs = ["tests", "config", "srv", ".venv"]
+tests = ["B201", "B301"]
+skips = ["B101", "B601"]
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | venv
+  | \.env
+  | \.flake8
+)/
+'''
+skip-magic-trailing-comma = false
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    ".venv",
+    "docs",
+    "tests",
+    "migrations",
+    "*.pyc",
+    "__pycache__",
+    ".git",
+    ".ruff_cache",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # Pyflakes
+    "W",    # Warning
+    "A",    # flake8-builtins
+    "EXE",  # flake8-executable,
+    "ISC",  # flake8-implicit-str-concat
+    "G",    # flake8-logging-format
+    "T20",  # flake8-print
+    "TID",  # flake8-tidy-imports
+    "PGH",  # pygrep-hooks
+    "PLC",  # Pylint Convention
+    "PLE",  # Pylint Errors
+]
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+exclude = [".venv", "docs", "tests"]
+ignore = [
+    "E501",
+    "E402",
+    "F821",
+    "W291",
+    "G004",
+    "PLE1205",
+    "PLC0206",
+    "PGH003",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+addopts = "-ra -vv --tb=native"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::ImportWarning",
+    "ignore::ResourceWarning",
+]
+
+[tool.tox]
+envlist = "py312, py311"
+skip_missing_interpreters = true
+
+[tool.coverage.run]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
