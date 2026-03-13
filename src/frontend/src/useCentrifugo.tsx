@@ -1,3 +1,4 @@
+// src/frontend/src/useCentrifugo.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Centrifuge, Subscription } from 'centrifuge';
 
@@ -45,7 +46,7 @@ export function useCentrifugo({ tokenUrl, wsUrl }: UseCentrifugoOptions) {
         centrifugeRef.current = centrifuge;
       } catch (e) {
         console.error('Centrifugo init error:', e);
-        if (!cancelled) setTimeout(init, 3000);  // retry
+        if (!cancelled) setTimeout(init, 3000);
       }
     }
 
@@ -70,6 +71,7 @@ export function useCentrifugo({ tokenUrl, wsUrl }: UseCentrifugoOptions) {
       return null;
     }
 
+    // каждый раз создаём новую подписку для канала
     const sub = centrifuge.newSubscription(channel);
 
     if (handlers.onPublication) {
@@ -86,6 +88,13 @@ export function useCentrifugo({ tokenUrl, wsUrl }: UseCentrifugoOptions) {
     return sub;
   }, []);
 
+  const removeSubscription = useCallback((sub: Subscription | null) => {
+    const centrifuge = centrifugeRef.current;
+    if (!centrifuge || !sub) return;
+    // полностью удаляем subscription из реестра клиента
+    centrifuge.removeSubscription(sub);  // без этого newSubscription позже падает[web:69][web:120]
+  }, []);
+
   const publish = useCallback(async (channel: string, data: any) => {
     const centrifuge = centrifugeRef.current;
     if (!centrifuge) {
@@ -94,5 +103,5 @@ export function useCentrifugo({ tokenUrl, wsUrl }: UseCentrifugoOptions) {
     return centrifuge.publish(channel, data);
   }, []);
 
-  return { connected, subscribe, publish };
+  return { connected, subscribe, publish, removeSubscription };
 }

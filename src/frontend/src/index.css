@@ -18,3 +18,11 @@ body {
   justify-content: center;
   padding: 20px;
 }
+
+@media (max-width: 768px) {
+  .auth-page,
+  .chat-page {
+    padding: 10px;
+    align-items: stretch;
+  }
+}

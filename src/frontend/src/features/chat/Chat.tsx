@@ -34,7 +34,8 @@ export const Chat: React.FC = () => {
   const {
     connected,
     subscribe,
-    // publish
+    // publish,
+    removeSubscription,
   } = useCentrifugo({
     // @ts-ignore
     tokenUrl: import.meta.env.VITE_CENT_TOKEN_URL || '/api/v1/centrifugo/token',
@@ -55,6 +56,30 @@ export const Chat: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState<FlagsMap>({});
   const [input, setInput] = useState('');
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const MOBILE_BREAKPOINT = 768;
+
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false,
+  );
+
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+
+  useEffect(() => {
+    const handler = () => {
+      const mobile = window.innerWidth <= MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+      if (!mobile) {
+        // на десктопе всегда показываем и список, и чат
+        setMobileView('list');
+      }
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  const showSidebar = !isMobile || mobileView === 'list';
+  const showChat = !isMobile || mobileView === 'chat';
 
   // загрузка текущего пользователя и списка юзеров
   useEffect(() => {
@@ -213,23 +238,26 @@ export const Chat: React.FC = () => {
       },
     });
 
-    // первая загрузка истории
     loadMessagesForChannel(channelId);
 
     return () => {
-      if (sub) sub.unsubscribe();
+      if (sub) {
+        sub.unsubscribe();          // отписали от канала
+        removeSubscription(sub);    // и убрали из реестра клиента[web:69][web:120]
+      }
     };
   }, [selectedChannelId, connected]);
 
   const handleSelectUser = async (user: User) => {
     setSelectedUser(user);
 
-    // получаем или создаём канал между текущим пользователем и собеседником
     const channelId = await ensureChannelForUser(user.id);
     if (channelId) {
       setSelectedChannelId(channelId);
+      if (isMobile) {
+        setMobileView('chat');
+      }
     } else {
-      // если канал не удалось получить — сбрасываем выбор
       setSelectedChannelId(null);
     }
   };
@@ -333,156 +361,174 @@ export const Chat: React.FC = () => {
   return (
     <div className="chat-layout">
       {/* SIDEBAR */}
-      <aside className="chat-sidebar">
-        <header className="sidebar-header">
-          <div className="sidebar-title">Чаты</div>
-          {currentUser && (
-            <div className="sidebar-user">
-              <span className="sidebar-avatar">{currentUser.avatar}</span>
-              <span className="sidebar-name">{currentUser.name}</span>
-            </div>
-          )}
-        </header>
-
-        <div className="users-list">
-          {users.map(user => (
-            <button
-              key={user.id}
-              type="button"
-              className={
-                'user-item' +
-                (selectedUser?.id === user.id ? ' active' : '')
-              }
-              onClick={() => handleSelectUser(user)}
-            >
-              <div className="user-avatar">{user.avatar}</div>
-              <div className="user-info">
-                <h3>{user.name}</h3>
-                <span className="user-status">
-                  {getStatusText(user)}
-                </span>
+      {showSidebar && (
+        <aside className="chat-sidebar">
+          <header className="sidebar-header">
+            <div className="sidebar-title">Чаты</div>
+            {currentUser && (
+              <div className="sidebar-user">
+                <span className="sidebar-avatar">{currentUser.avatar}</span>
+                <span className="sidebar-name">{currentUser.name}</span>
               </div>
-            </button>
-          ))}
-        </div>
-      </aside>
+            )}
+          </header>
 
-      {/* MAIN CHAT AREA */}
-      <section className="chat-main">
-        {!selectedUser || !currentChannelId ? (
-          <div className="empty-state">
-            <h2>Выберите собеседника</h2>
-            <p>Чтобы начать общение, выберите пользователя из списка слева.</p>
-          </div>
-        ) : (
-          <>
-            <header className="chat-header">
-              <div className="chat-user">
-                <div className="chat-avatar">{selectedUser.avatar}</div>
-                <div>
-                  <h2>{selectedUser.name}</h2>
-                  <span className="chat-user-status">
-                    {connected ? 'online' : 'offline'}
+          <div className="users-list">
+            {users.map(user => (
+              <button
+                key={user.id}
+                type="button"
+                className={
+                  'user-item' +
+                  (selectedUser?.id === user.id ? ' active' : '')
+                }
+                onClick={() => handleSelectUser(user)}
+              >
+                <div className="user-avatar">{user.avatar}</div>
+                <div className="user-info">
+                  <h3>{user.name}</h3>
+                  <span className="user-status">
+                    {getStatusText(user)}
                   </span>
                 </div>
-              </div>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
 
-              <div className="chat-header-right">
-                <span
-                  className={
-                    'connection-status ' +
-                    (connected ? 'connected' : 'disconnected')
-                  }
-                >
-                  {connected ? 'Подключено' : 'Отключено'}
-                </span>
+      {/* MAIN CHAT AREA */}
+      {showChat && (
+        <section className="chat-main">
+          {!selectedUser || !selectedChannelId || !currentChannelId ? (
+            <div className="empty-state">
+              <h2>Выберите собеседника</h2>
+              <p>Чтобы начать общение, выберите пользователя из списка.</p>
+            </div>
+          ) : (
+          <>
+              <header className="chat-header">
+                {isMobile && (
+                  <button
+                    type="button"
+                    className="back-btn"
+                    onClick={() => {
+                      setMobileView('list');
+                      setSelectedUser(null);
+                      setSelectedChannelId(null);
+                    }}
+                  >
+                    ← Назад
+                  </button>
+                )}
 
-                <button className="logout-btn" onClick={handleLogout}>
-                  Выйти
-                </button>
-              </div>
-            </header>
-
-            <div
-              className="chat-messages"
-              ref={messagesContainerRef}
-            >
-              {hasMoreMessages[currentChannelId] && (
-                <button
-                  type="button"
-                  className="load-more-btn"
-                  disabled={loadingMore[currentChannelId]}
-                  onClick={() => {
-                    const oldest = currentMessages[0];
-                    loadMessagesForChannel(
-                      currentChannelId,
-                      oldest?.id || undefined,
-                    );
-                  }}
-                >
-                  Загрузить ещё
-                </button>
-              )}
-
-              {currentMessages.map(m => (
-                <div
-                  key={m.id ?? m.temp_id}
-                  className={
-                    'message-row ' +
-                    (m.sender_id === currentUser?.id
-                      ? 'own'
-                      : 'other')
-                  }
-                >
-                  <div className="message-bubble">
-                    <div className="message-text">{m.content}</div>
-                    <div className="message-meta">
-                      <span>
-                        {new Date(
-                          m.created_at,
-                        ).toLocaleTimeString()}
-                      </span>
-                      {m.status === 'error' && (
-                        <span className="message-status error">
-                          Ошибка
-                        </span>
-                      )}
-                      {m.status === 'saved_only' && (
-                        <span className="message-status saved-only">
-                          Сохранено в БД
-                        </span>
-                      )}
-                    </div>
+                <div className="chat-user">
+                  <div className="chat-avatar">{selectedUser.avatar}</div>
+                  <div>
+                    <h2>{selectedUser.name}</h2>
+                    <span className="chat-user-status">
+                      {connected ? 'online' : 'offline'}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <div className="chat-input-area">
-              <textarea
-                className="chat-input"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="Напишите сообщение…"
-              />
-              <button
-                type="button"
-                className="send-btn"
-                onClick={handleSend}
-                disabled={!input.trim()}
+                <div className="chat-header-right">
+                  <span
+                    className={
+                      'connection-status ' +
+                      (connected ? 'connected' : 'disconnected')
+                    }
+                  >
+                    {connected ? 'Подключено' : 'Отключено'}
+                  </span>
+
+                  <button className="logout-btn" onClick={handleLogout}>
+                    Выйти
+                  </button>
+                </div>
+              </header>
+
+              <div
+                className="chat-messages"
+                ref={messagesContainerRef}
               >
-                Отправить
-              </button>
-            </div>
-          </>
-        )}
-      </section>
+                {hasMoreMessages[currentChannelId] && (
+                  <button
+                    type="button"
+                    className="load-more-btn"
+                    disabled={loadingMore[currentChannelId]}
+                    onClick={() => {
+                      const oldest = currentMessages[0];
+                      loadMessagesForChannel(
+                        currentChannelId,
+                        oldest?.id || undefined,
+                      );
+                    }}
+                  >
+                    Загрузить ещё
+                  </button>
+                )}
+
+                {currentMessages.map(m => (
+                  <div
+                    key={m.id ?? m.temp_id}
+                    className={
+                      'message-row ' +
+                      (m.sender_id === currentUser?.id
+                        ? 'own'
+                        : 'other')
+                    }
+                  >
+                    <div className="message-bubble">
+                      <div className="message-text">{m.content}</div>
+                      <div className="message-meta">
+                        <span>
+                          {new Date(
+                            m.created_at,
+                          ).toLocaleTimeString()}
+                        </span>
+                        {m.status === 'error' && (
+                          <span className="message-status error">
+                            Ошибка
+                          </span>
+                        )}
+                        {m.status === 'saved_only' && (
+                          <span className="message-status saved-only">
+                            Сохранено в БД
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="chat-input-area">
+                <textarea
+                  className="chat-input"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Напишите сообщение…"
+                />
+                <button
+                  type="button"
+                  className="send-btn"
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                >
+                  Отправить
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 };
