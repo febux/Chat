@@ -1,5 +1,6 @@
 services:
-  api:
+  backend:
+    container_name: backend
     env_file: ".env"
     command:
       - gunicorn
@@ -49,6 +50,29 @@ services:
       timeout: 10s
       start_period: 30s
       retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: srv/frontend/Dockerfile
+    container_name: frontend
+    environment:
+      VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_CENT_WS_URL: ${VITE_CENT_WS_URL}
+      VITE_CENT_TOKEN_URL: ${VITE_CENT_TOKEN_URL}
+    restart: unless-stopped
+    ports:
+      - "${VITE_EXTERNAL_PORT}:${VITE_PORT}"
+    depends_on:
+      backend:
+        condition: service_healthy
+      centrifugo:
+        condition: service_started
+    networks:
+      - app_network
+      - metrics_network
+      - logs_network
 
   manager:
     build:
@@ -107,10 +131,12 @@ services:
   centrifugo:
     image: centrifugo/centrifugo
     command: centrifugo -c config.json
+    restart: unless-stopped
     environment:
       CENTRIFUGO_ADMIN_PASSWORD: ${CENTRIFUGO_ADMIN_PASSWORD}
       CENTRIFUGO_ADMIN_SECRET: ${CENTRIFUGO_ADMIN_SECRET}
       CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY}
+      CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY}
       CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_HTTP_API_KEY}
       CENTRIFUGO_BROKER_NATS_URL: ${CENTRIFUGO_BROKER_NATS_URL}
     volumes:
@@ -126,7 +152,6 @@ services:
       nofile:
         soft: 65535
         hard: 65535
-    restart: unless-stopped
 
   redis:
     image: redis
@@ -180,7 +205,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
     depends_on:
-      api:
+      backend:
         condition: service_healthy
     networks:
       - metrics_network
@@ -196,7 +221,7 @@ services:
       - "${OTEL_OTLP_HTTP_RECEIVER_EXTERNAL_PORT}:4318"   # OTLP HTTP receiver
       - "${OTEL_PROMETHEUS_METRICS_ENDPOINT_EXTERNAL_PORT}:8889"   # Prometheus metrics endpoint
     depends_on:
-      api:
+      backend:
         condition: service_healthy
     networks:
       - metrics_network
@@ -209,7 +234,7 @@ services:
       - app_logs:/var/log/api_logs:ro
       - ./config/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
     depends_on:
-      api:
+      backend:
         condition: service_healthy
     restart: unless-stopped
     networks:

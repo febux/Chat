@@ -7,7 +7,7 @@ from uuid import UUID
 import httpx
 
 from src.backend.config.main import settings
-from src.backend.app.utils.auth import create_centrifugo_token
+from src.backend.app.utils.auth import create_centrifugo_token, create_subscription_token
 from src.backend.core.logger.logger_factory import logger_bind
 from src.backend.database.sqlalchemy.orm_manager import RepositoryManagerMeta
 
@@ -71,3 +71,17 @@ class CentrifugoService:
                 },
             )
             res.raise_for_status()
+
+    async def create_subscription_token(
+        self,
+        user_id: UUID,
+        channel_id: UUID,
+    ) -> str:
+        """
+        Create a subscription token for a given user ID and channel ID.
+
+        :param user_id: The ID of the user.
+        :param channel_id: The ID of the channel.
+        :return: None
+        """
+        return create_subscription_token(str(user_id), str(channel_id))

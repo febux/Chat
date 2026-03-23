@@ -239,6 +239,12 @@ class AppConfig(ConfigBase):
         title="HMAC secret key",
         examples=["your-client-token-hmac-secret-key", "my-client-token-hmac-secret-key"],
     )
+    CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY: str = Field(
+        "your-channel-token-hmac-secret-key",
+        description="HMAC secret key for Centrifugo channel token",
+        title="HMAC secret key",
+        examples=["your-channel-token-hmac-secret-key", "my-channel-token-hmac-secret-key"],
+    )
 
     @computed_field
     @property

@@ -438,20 +438,22 @@
 /* Адаптивность: телефоны */
 @media (max-width: 768px) {
   .chat-wrapper {
-    padding: 10px;
+    padding: 0;
   }
 
   .chat-card {
     width: 100%;
-    height: 100vh;
-    max-width: 100%;
-    min-width: 0;
-    min-height: 0;
+    height: 100vh;      /* карточка = высота экрана */
+    max-height: 100vh;
+    min-height: 0;      /* позволяем сжиматься */
     border-radius: 0;
     box-shadow: none;
   }
 
   .chat-layout {
+    flex: 1;
+    min-height: 0;      /* ключ: разрешаем дочерним flex-элементам сжиматься[web:182][web:191] */
+    display: flex;
     flex-direction: column;
   }
 
@@ -484,6 +486,9 @@
 
   .chat-main {
     flex: 1;
+    min-height: 0;      /* иначе messages тянут весь layout вниз */
+    display: flex;
+    flex-direction: column;
   }
 
   .chat-header {
@@ -512,6 +517,9 @@
   }
 
   .chat-messages {
+    flex: 1;
+    min-height: 0;      /* разрешаем блоку сообщений занимать ровно доступную высоту */
+    overflow-y: auto;   /* реальный скролл внутри */
     padding: 12px 10px 10px;
   }
 
@@ -526,8 +534,8 @@
   }
 
   .chat-input-area {
+    flex-shrink: 0;     /* инпут не сжимается и не пропадает */
     padding: 10px 10px 12px;
-    gap: 8px;
   }
 
   .chat-input {

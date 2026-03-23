@@ -142,7 +142,8 @@ db.alembic-shell:
 ### Application commands
 up.local:
 	docker compose up --remove-orphans --build -d \
-		api \
+		backend \
+		frontend \
 		redis \
 		nats \
 		centrifugo \
@@ -150,7 +151,8 @@ up.local:
 
 up:
 	docker compose up --remove-orphans --build -d \
-		api
+		backend \
+		frontend
 
 startup.local: up.local db.local.upgrade
 

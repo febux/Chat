@@ -9,7 +9,7 @@ receivers:
       scrape_configs:
         - job_name: "fastapi"
           static_configs:
-            - targets: [ "api:10000" ]
+            - targets: [ "backend:10000" ]
 
 processors:
   batch:

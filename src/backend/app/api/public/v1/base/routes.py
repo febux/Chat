@@ -27,6 +27,7 @@ router = APIRouter()
     status_code=201,
     tags=["authorization"],
     description="Register a new user",
+    summary="Register a new user",
 )
 async def register_user(
     user_data: UserRegister,
@@ -45,12 +46,17 @@ async def register_user(
         password_hash=hashed_password
     )
 
-    return {'message': 'Вы успешно зарегистрированы!', 'user_id': user.id}
+    return {'message': 'You have been successfully registered!', 'user_id': user.id}
 
 
 @router.post(
     "/logout",
     tags=["authorization"],
+    description="Logout the user and clear the session",
+    summary="Logout the user",
+    response_model=dict,
+    status_code=200,
+    response_model_exclude_unset=True,
 )
 async def logout(
     request: Request,
@@ -66,12 +72,17 @@ async def logout(
     """
     response.delete_cookie(key="users_access_token")
     response.delete_cookie(key="users_refresh_token")
-    return {'message': 'Вы вышли из системы!'}
+    return {'message': "You're logged out!"}
 
 
 @router.post(
     "/login",
     tags=["authorization"],
+    description="Login the user and set the session",
+    summary="Login the user",
+    response_model=dict,
+    status_code=200,
+    response_model_exclude_unset=True,
 )
 async def login(
     user_data: UserAuth,
@@ -92,14 +103,15 @@ async def login(
         raise IncorrectEmailOrPasswordError
     access_token = create_access_token({"sub": str(check.id)})
     response.set_cookie(key="users_access_token", value=access_token, httponly=True)
-    return {'access_token': access_token, 'refresh_token': None, 'message': 'Авторизация успешна!'}
+    return {'access_token': access_token, 'refresh_token': None, 'message': 'Authorization successful!'}
 
 
 
 @router.get(
     "/me",
     response_model=dict,
-    summary="Получить данные текущего пользователя",
+    description="Get Current User Data",
+    summary="Get Current User Data",
     status_code=200,
 )
 async def get_current_user_info(

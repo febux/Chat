@@ -24,7 +24,10 @@
     "connection_rate_limit": 0,
     "concurrency": 0,
     "allow_anonymous_connect_without_token": false,
-    "disallow_anonymous_connection_tokens": false
+    "disallow_anonymous_connection_tokens": false,
+    "subscription_token": {
+      "enabled": true
+    }
   },
 
   "admin": {
@@ -72,8 +75,7 @@
         "history_size": 0,
         "history_ttl": 0,
         "presence": true,
-        "join_leave": true,
-        "allow_subscribe_for_client": true
+        "join_leave": true
       }
     ]
   }

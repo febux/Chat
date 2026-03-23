@@ -61,6 +61,7 @@ dependencies = [
     "python-socketio[asyncio-server]>=5.16.1",
     "alembic-postgresql-enum>=1.10.0",
     "nats-py>=2.14.0",
+    "arrow>=1.4.0",
 ]
 
 [dependency-groups]

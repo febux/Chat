@@ -43,6 +43,7 @@ async def get_users(
 async def get_user_by_id(
     request: Request,
     user_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
     service: Annotated[UserServiceMeta, Depends(get_user_api_service)],
 ) -> User:
     """
@@ -50,6 +51,27 @@ async def get_user_by_id(
 
     :param request: The FastAPI Request object.
     :param user_id: The ID of the user to retrieve.
+    :param current_user: The current user making the request.
     :return: The user with the given ID.
     """
     return await service.get_by_id(user_id)
+
+
+@router.post(
+    "/ping",
+    description="Ping the current user to indicate is still active",
+    response_model=dict[str, bool],
+)
+async def user_ping(
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[UserServiceMeta, Depends(get_user_api_service)],
+):
+    """
+    Ping the current user to indicate is still active.
+
+    :param current_user: The current user making the request.
+    :param service: The User service instance.
+    :return: A success message.
+    """
+    await service.set_user_ping(user_id=current_user.id)
+    return {"ok": True}

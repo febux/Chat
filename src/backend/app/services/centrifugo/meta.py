@@ -39,3 +39,18 @@ class CentrifugoServiceMeta(Protocol):
         :return: None
         """
         ...
+
+    @abstractmethod
+    async def create_subscription_token(
+        self,
+        user_id: UUID,
+        channel_id: UUID,
+    ) -> None:
+        """
+        Create a subscription token for a given user ID and channel ID.
+
+        :param user_id: The ID of the user.
+        :param channel_id: The ID of the channel.
+        :return: None
+        """
+        ...

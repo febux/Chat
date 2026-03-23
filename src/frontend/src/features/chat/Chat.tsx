@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useCentrifugo } from '../../useCentrifugo';
 import '../../styles/chat.css';
+import {Subscription} from "centrifuge";
 
 type User = {
   id: string;
@@ -30,17 +31,21 @@ type CurrentUser = {
 type MessagesMap = Record<string, Message[]>;
 type FlagsMap = Record<string, boolean>;
 
+// @ts-ignore
+const tokenUrl = import.meta.env.VITE_CENT_TOKEN_URL || '/api/v1/centrifugo/token';
+// @ts-ignore
+const wsUrl = import.meta.env.VITE_CENT_WS_URL || 'ws://localhost:5000/connection/websocket';
+
 export const Chat: React.FC = () => {
   const {
     connected,
-    subscribe,
+    // subscribe,
+    subscribeWithToken,
     // publish,
     removeSubscription,
   } = useCentrifugo({
-    // @ts-ignore
-    tokenUrl: import.meta.env.VITE_CENT_TOKEN_URL || '/api/v1/centrifugo/token',
-    // @ts-ignore
-    wsUrl: import.meta.env.VITE_CENT_WS_URL || 'ws://localhost:5000/connection/websocket',
+    tokenUrl: tokenUrl,
+    wsUrl: wsUrl,
   });
 
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -102,7 +107,7 @@ export const Chat: React.FC = () => {
           id: u.id,
           name: u.username || u.email.split('@')[0],
           email: u.email,
-          status: 'unknown',
+          status: u.status,
           avatar: getAvatarByName(u.username || u.email),
         }));
         setUsers(mapped);
@@ -213,32 +218,37 @@ export const Chat: React.FC = () => {
 
     const channelId = selectedChannelId;
     const channelName = `chat:${channelId}`;
+    let sub: Subscription | null = null;
 
-    const sub = subscribe(channelName, {
-      onPublication: data => {
-        if (data.sender_id === currentUser?.id) {
-          return;
-        }
-        setMessages(prev => {
-          const msg: Message = {
-            id: data.id,
-            temp_id: data.temp_id || 0,
-            sender_id: data.sender_id,
-            channel_id: data.channel_id,
-            content: data.content,
-            created_at: data.created_at,
-            status: 'delivered',
-          };
-          const list = prev[channelId] || [];
-          return {
-            ...prev,
-            [channelId]: [...list, msg],
-          };
-        });
-      },
-    });
+    (async () => {
+      sub = await subscribeWithToken(
+        channelName,
+        {
+          onPublication: data => {
+            if (data.sender_id === currentUser?.id) return;
+            setMessages(prev => {
+              const msg: Message = {
+                id: data.id,
+                temp_id: data.temp_id || 0,
+                sender_id: data.sender_id,
+                channel_id: data.channel_id,
+                content: data.content,
+                created_at: data.created_at,
+                status: 'delivered',
+              };
+              const list = prev[channelId] || [];
+              return { ...prev, [channelId]: [...list, msg] };
+            });
+          },
+        },
+        '/api/v1/centrifugo/subscription-token',
+        { channel_id: channelId },
+      );
 
-    loadMessagesForChannel(channelId);
+      if (sub) {
+        await loadMessagesForChannel(channelId);
+      }
+    })();
 
     return () => {
       if (sub) {
@@ -246,7 +256,7 @@ export const Chat: React.FC = () => {
         removeSubscription(sub);    // и убрали из реестра клиента[web:69][web:120]
       }
     };
-  }, [selectedChannelId, connected]);
+  }, [selectedChannelId, connected, currentUser]);
 
   const handleSelectUser = async (user: User) => {
     setSelectedUser(user);
@@ -294,7 +304,6 @@ export const Chat: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          // подстрой под свой backend: теперь используем channel_id
           channel_id: channelId,
           content: text,
         }),
@@ -427,7 +436,7 @@ export const Chat: React.FC = () => {
                   <div>
                     <h2>{selectedUser.name}</h2>
                     <span className="chat-user-status">
-                      {connected ? 'online' : 'offline'}
+                      {selectedUser.status}
                     </span>
                   </div>
                 </div>

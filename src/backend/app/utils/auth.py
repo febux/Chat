@@ -24,3 +24,19 @@ def create_centrifugo_token(user_id: str) -> str:
         settings.app.CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY,
         algorithm="HS256",
     )
+
+
+def create_subscription_token(user_id: str, channel_id: str) -> str:
+    now = datetime.now(timezone.utc)
+    claims = {
+        "sub": user_id,
+        "channel": f"chat:{channel_id}",
+        "exp": now + timedelta(hours=1),  # 30 минут
+    }
+
+    token = jwt.encode(
+        claims,
+        settings.app.CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY,
+        algorithm="HS256",
+    )
+    return token

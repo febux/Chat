@@ -88,3 +88,23 @@ class UserServiceMeta(Protocol):
         :return: The user if authenticated, otherwise None.
         """
         ...
+
+    @abstractmethod
+    async def get_user_pings(self, user_ids: Sequence[UUID]) -> dict:
+        """
+        Retrieve the last ping timestamp for a list of users.
+
+        :param user_ids: The IDs of the users.
+        :return: A dictionary mapping user IDs to their last ping timestamps.
+        """
+        ...
+
+    @abstractmethod
+    async def set_user_ping(self, user_id: UUID) -> None:
+        """
+        Update the last ping timestamp for a user.
+
+        :param user_id: The ID of the user.
+        :return: The updated user.
+        """
+        ...
