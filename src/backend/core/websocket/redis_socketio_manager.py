@@ -58,7 +58,7 @@ class ConnectionManager:
             client_manager=redis_manager,
             async_mode="asgi",
             async_handlers=True,
-            cors_allowed_origins=["*"],
+            cors_allowed_origins=settings.app.CORS_ORIGINS,
             ping_timeout=60,
             ping_interval=30,
             logger=True,

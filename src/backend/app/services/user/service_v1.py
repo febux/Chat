@@ -17,6 +17,9 @@ from src.backend.utils.password import verify_password
 REDIS_PREFIX_STATUS = "user:status:"
 REDIS_PREFIX_LAST_SEEN = "user:last_seen:"
 ONLINE_TTL_SECONDS = 90  # сколько секунд после пинга считаем онлайном
+# last_seen должен переживать offline-статус (показывается как "был в сети"),
+# но не расти бесконечно — каждое письмо обновляет TTL.
+LAST_SEEN_TTL_SECONDS = 30 * 24 * 3600
 
 
 class UserService:
@@ -157,7 +160,7 @@ class UserService:
 
         pipe = self.redis_client.pipeline()
         await pipe.set(REDIS_PREFIX_STATUS + uid, "online", ex=ONLINE_TTL_SECONDS)
-        await pipe.set(REDIS_PREFIX_LAST_SEEN + uid, now_ts)
+        await pipe.set(REDIS_PREFIX_LAST_SEEN + uid, now_ts, ex=LAST_SEEN_TTL_SECONDS)
         await pipe.execute()
 
     async def create(

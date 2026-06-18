@@ -14,6 +14,7 @@ from src.backend.app.providers.message.provider_v1 import \
 from src.backend.app.services.centrifugo.meta import CentrifugoServiceMeta
 from src.backend.app.services.message.meta import MessageServiceMeta
 from src.backend.app.utils.current_user import get_current_user
+from src.backend.middleware.rate_limit_middleware import default_limiter
 from src.backend.schemas.messages.message_create import ChannelMessageCreate
 from src.backend.schemas.messages.message_get import Message
 from src.backend.schemas.messages.message_list import MessageList
@@ -55,6 +56,7 @@ async def get_channel_messages(
 
 
 @router.post("", response_model=dict)
+@default_limiter.limit("30/minute")
 async def send_message(
     request: Request,
     message: ChannelMessageCreate,
@@ -78,3 +80,25 @@ async def send_message(
         status_code=201,
         content={"message": "Message was saved successfully"}
     )
+
+
+@router.delete("/{message_id}", response_model=dict)
+async def delete_message(
+    message_id: UUID,
+    service: Annotated[MessageServiceMeta, Depends(get_message_api_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Soft-delete a message.
+
+    Only the message's sender may delete it. A failure (message missing,
+    already deleted, or owned by someone else) is uniformly reported as 403 so
+    the endpoint cannot be used to enumerate message ids or infer ownership.
+
+    :param message_id: ID of the message to delete.
+    :param current_user: The authenticated user (must be the sender).
+    """
+    deleted = await service.delete_message(message_id=message_id, user_id=current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=403, detail="Cannot delete this message")
+    return JSONResponse(status_code=200, content={"detail": "Message deleted"})

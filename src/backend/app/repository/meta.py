@@ -70,7 +70,7 @@ class AbstractRepository(ABC, Generic[_MODEL_TYPE]):
         self,
         query: _QUERY,  # type: ignore[type-var]
         *,
-        query_plan: Literal["explain", "explain_analyze"] | None = "explain",
+        query_plan: Literal["explain", "explain_analyze"] | None = None,
         module_name: str | None = None,
     ) -> Result:
         """
@@ -81,24 +81,26 @@ class AbstractRepository(ABC, Generic[_MODEL_TYPE]):
         module name and function name that called it.
 
         :param query: (_QUERY): The SQLAlchemy query to be executed.
-        :param query_plan: (Literal["explain", "explain_analyze"], optional): The query plan to be executed.
-            Defaults to "explain".
+        :param query_plan: (Literal["explain", "explain_analyze"], optional): The query plan to be
+            executed. Defaults to None, meaning no EXPLAIN round-trip is run — the query is executed
+            directly. Previously this defaulted to "explain", which fired an extra EXPLAIN query on
+            every call (a silent per-query cost on the hot path).
         :param module_name: (str, optional): The module name to be logged. If not provided, it will be
-            automatically determined.
+            automatically determined. Only used when ``query_plan`` is set.
 
         :return: Result: The result of executing the SQLAlchemy query.
         """
-        if not module_name:
-            func_name = await self._get_outer_func_name()
-            module_name = f"{self.__class__.__name__}.{func_name}"
+        if query_plan is not None:
+            if not module_name:
+                func_name = await self._get_outer_func_name()
+                module_name = f"{self.__class__.__name__}.{func_name}"
 
-        match query_plan:
-            case "explain":
-                await self._explain_compiled_query(query, module_name=module_name)
-            case "explain_analyze":
-                await self._explain_compiled_query(query, module_name=module_name, analyze=True)
-            case _:
-                pass
+            match query_plan:
+                case "explain":
+                    await self._explain_compiled_query(query, module_name=module_name)
+                case "explain_analyze":
+                    await self._explain_compiled_query(query, module_name=module_name, analyze=True)
+
         return await self.session.execute(query)
 
     @staticmethod

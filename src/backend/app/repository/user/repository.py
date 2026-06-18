@@ -21,14 +21,18 @@ class UserRepository(AbstractRepository[User]):
         self,
         q: str | None = None,
         skip: int = 0,
-        limit: int = 0,
+        limit: int = 100,
     ) -> Sequence[User]:
         """
-        Retrieve all users.
+        Retrieve users, always bounded by ``limit``.
+
+        ``limit`` defaults to a safe cap rather than an unbounded scan: previously
+        ``limit=0`` with ``if limit > 0`` meant omitting the argument selected the
+        whole table — a latent DoS footgun. The cap is always applied now.
 
         :param q: Search query for filtering users.
         :param skip: Number of users to skip before retrieving results.
-        :param limit: Maximum number of users to retrieve.
+        :param limit: Maximum number of users to retrieve (default 100, always applied).
         :return: A list of users.
         """
         query = select(self.model)
@@ -37,8 +41,7 @@ class UserRepository(AbstractRepository[User]):
 
         if skip > 0:
             query = query.offset(skip)
-        if limit > 0:
-            query = query.limit(limit)
+        query = query.limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
 

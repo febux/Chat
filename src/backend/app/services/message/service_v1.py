@@ -136,3 +136,23 @@ class MessageService:
             user_id=user_id,
         )
         return membership is not None
+
+    async def delete_message(self, message_id: UUID, user_id: UUID) -> bool:
+        """
+        Soft-delete a message, but only if ``user_id`` is its sender.
+
+        Returns False if the message does not exist, is already deleted, or
+        belongs to another user. The route maps every False to a single 403 so
+        the response cannot be used to enumerate message ids or infer ownership.
+
+        :param message_id: ID of the message to delete.
+        :param user_id: ID of the requesting user (must be the sender).
+        :return: True if the message was soft-deleted, False otherwise.
+        """
+        message = await self.message_repo.read_one(id=message_id)
+        if message is None or getattr(message, "deleted_at", None) is not None:
+            return False
+        if message.sender_id != user_id:
+            return False
+        async with self.orm_manager.transaction():
+            return await self.message_repo.soft_delete(message_id)

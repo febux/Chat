@@ -18,7 +18,11 @@ from src.backend.common.exceptions.api.server_exception import \
 from src.backend.config.main import settings
 from src.backend.core.redis.client import RedisClient
 
-default_limiter = Limiter(key_func=get_remote_address, storage_uri=settings.redis.get_redis_url())
+# slowapi's Limiter honours `storage_uri`. Redis (the default in prod) keeps
+# counters shared across workers; in TESTING_MODE we fall back to in-process
+# memory storage so the test suite needs no live Redis.
+_storage_uri = "memory://" if settings.app.TESTING_MODE else settings.redis.get_redis_url()
+default_limiter = Limiter(key_func=get_remote_address, storage_uri=_storage_uri)
 
 
 class RateLimitingMiddleware(BaseHTTPMiddleware):

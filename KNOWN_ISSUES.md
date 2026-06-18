@@ -76,9 +76,9 @@ case). Frontend callers must send `{"email": "..."}` instead of a path segment.
 
 Severity legend: [CRIT] security/correctness/data-integrity, [HI] performance or
 logic bug with real user impact, [MED] quality/maintainability, [LOW] hygiene.
-Items below need a decision or a code change. The three [CRIT] items (#20–#22)
-and the four [HI] items (#23–#26) were resolved in a follow-up pass; the
-[MED]/[LOW] items remain open.
+Items below need a decision or a code change. The three [CRIT] items (#20–#22),
+the four [HI] items (#23–#26), and the seven [MED] items (#27–#33) were resolved
+in follow-up passes; only the [LOW] items (#34) remain open.
 
 ## [CRIT] #20 — No channel-membership authorization on message endpoints — RESOLVED
 
@@ -191,44 +191,88 @@ channel_member_repo.create(...)` per member; `AbstractRepository.create`
 For N members: ~2N+ round-trips.
 Fix: `session.add_all([...])` + a single `flush()`; skip the per-row `refresh`.
 
-## [MED] #27 — Rate limiting configured but applied nowhere
+## [MED] #27 — Rate limiting configured but applied nowhere — RESOLVED
+
+**Resolved:** Wired `@default_limiter.limit(...)` onto the hot endpoints:
+`5/minute` on `/login` and `/register` (`app/api/public/v1/base/routes.py`),
+`30/minute` on `send_message` (`app/api/public/v1/message/routes.py`). The
+`register_user` signature gained the `request: Request` param slowapi requires.
+Fixed a latent breakage in `middleware/rate_limit_middleware.py`: the module-level
+`default_limiter` always used Redis storage, so the decorators hit Redis at
+request time and broke all auth route tests in TESTING_MODE — it now selects
+`memory://` storage when `settings.app.TESTING_MODE` is set (prod still uses Redis
+for shared cross-worker counters).
 
 `slowapi` + `fastapi-guard` are deps and `RATE_LIMIT_DURATION`/`RATE_LIMIT_REQUESTS`
 exist in config, but `grep` over `app/api` finds zero usage. Message sending and
 auth endpoints are unprotected against brute-force/spam.
 
-## [MED] #28 — Soft-delete half-implemented
+## [MED] #28 — Soft-delete half-implemented — RESOLVED
+
+**Resolved:** All three message-read queries (`get_messages_between_users`,
+`get_messages_for_channel`) now AND `deleted_at IS NULL` onto their WHERE clause
+(`repository/message/repository.py`), so soft-deleted rows never surface in
+history. New `MessageRepository.soft_delete(id)` does an idempotent
+`UPDATE ... WHERE deleted_at IS NULL`. `MessageService.delete_message()`
+(`service_v1.py`) loads the row, checks `sender_id == user_id`, and soft-deletes
+inside a transaction, returning False for not-found / already-deleted / not-owner
+so the new `DELETE /messages/{id}` route can uniformly 403 (no id-enumeration
+leak). The `deleted_at` column already existed in the model and the initial
+migration, so no schema change was needed.
 
 `src/backend/app/models/message.py:30` declares `deleted_at`, but no query filters
 `deleted_at IS NULL` and there is no delete endpoint. "Deleted" messages are still
 returned by `get_messages_for_channel`.
 
-## [MED] #29 — DB config defaults point at RabbitMQ's port
+## [MED] #29 — DB config defaults point at RabbitMQ's port — RESOLVED
+
+**Resolved:** `src/backend/config/env_config/db.py` — `PORT` and `EXTERNAL_PORT`
+now default to `5432` (PostgreSQL) with matching `examples`/`description`; the
+class docstring was corrected too.
 
 `src/backend/config/env_config/db.py:65-76` — `PORT` defaults to `5672` and
 `EXTERNAL_PORT` to `15672` (RabbitMQ), not PostgreSQL's 5432. A deploy that omits
 `DATABASE_PORT` targets the wrong service or fails confusingly.
 
-## [MED] #30 — `last_seen` Redis keys never expire
+## [MED] #30 — `last_seen` Redis keys never expire — RESOLVED
+
+**Resolved:** `set_user_ping` now writes `user:last_seen:<id>` with
+`ex=LAST_SEEN_TTL_SECONDS` (30 days), matching the existing `user:status:<id>`
+90s TTL on the same pipeline. `last_seen` survives long enough to power "was
+online recently" but no longer grows Redis without bound.
 
 `src/backend/app/services/user/service_v1.py:159` — `set_user_ping` sets
 `user:last_seen:<id>` with no TTL (while `user:status:<id>` correctly gets 90s).
 Every user who ever pinged accumulates a permanent key → unbounded Redis growth.
 
-## [MED] #31 — `UserRepository.get_all` default returns the whole table
+## [MED] #31 — `UserRepository.get_all` default returns the whole table — RESOLVED
+
+**Resolved:** `limit` now defaults to `100` and the cap is always applied
+(`query.limit(limit)` runs unconditionally). The `if limit > 0` guard that let
+an omitted arg select the whole table is removed.
 
 `src/backend/app/repository/user/repository.py:25` — `limit: int = 0` with
 `if limit > 0: apply` means omitting `limit` selects every user row. The service
 always passes a limit today, but this is a latent DoS footgun.
 
-## [MED] #32 — `AbstractRepository.execute()` runs EXPLAIN by default
+## [MED] #32 — `AbstractRepository.execute()` runs EXPLAIN by default — RESOLVED
+
+**Resolved:** `query_plan` now defaults to `None`; the EXPLAIN branch (and the
+`module_name` derivation it needs) is only entered when a caller explicitly
+passes `query_plan`. A plain `self.execute(query)` is now a single round-trip.
+The `case _: pass` fallthrough is gone since the `if query_plan is not None`
+guard makes it unreachable.
 
 `src/backend/app/repository/meta.py:69-102` — `query_plan` defaults to `"explain"`,
 so any call to `self.execute()` fires a second `EXPLAIN <query>` round-trip per
 query. Currently unused (repos call `self.session.execute` directly) but a
 landmine. Flip the default to `None` or remove the method.
 
-## [MED] #33 — CORS `*` on the Socket.IO server with cookie auth
+## [MED] #33 — CORS `*` on the Socket.IO server with cookie auth — RESOLVED
+
+**Resolved:** Both `nats_socketio_manager.py` and `redis_socketio_manager.py`
+now pass `cors_allowed_origins=settings.app.CORS_ORIGINS` instead of the literal
+`["*"]`, so the allowed origins are the same set the HTTP CORS middleware uses.
 
 `src/backend/core/websocket/nats_socketio_manager.py:44` —
 `cors_allowed_origins=["*"]` combined with cookie-based WS auth is a cross-site

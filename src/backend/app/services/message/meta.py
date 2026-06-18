@@ -106,3 +106,14 @@ class MessageServiceMeta(Protocol):
         :return: True if the user is a member of the channel, False otherwise.
         """
         ...
+
+    @abstractmethod
+    async def delete_message(self, message_id: UUID, user_id: UUID) -> bool:
+        """
+        Soft-delete a message owned by the given user (sender only).
+
+        :param message_id: ID of the message to delete.
+        :param user_id: ID of the requesting user (must be the sender).
+        :return: True if deleted, False if not found / already deleted / not the sender.
+        """
+        ...

@@ -19,8 +19,8 @@ class DatabaseConfig(ConfigBase):
         USER (str): The username for database authentication. Defaults to "user".
         PASSWORD (str): The password for database authentication. Defaults to "password".
         HOST (str): The host address of the database. Defaults to "localhost".
-        PORT (int): The port number for the database connection. Defaults to 5672.
-        EXTERNAL_PORT (int): The external port number for the database connection. Defaults to 5672.
+        PORT (int): The port number for the database connection. Defaults to 5432 (PostgreSQL).
+        EXTERNAL_PORT (int): The external port number for the database connection. Defaults to 5432 (PostgreSQL).
         SCHEMA (str): The database schema to use. Defaults to "public".
         CHARSET (str): The character set for the database. Defaults to "utf8".
         ECHO (bool): Whether to print SQL queries during database operations.
@@ -63,16 +63,16 @@ class DatabaseConfig(ConfigBase):
         examples=["localhost", "db.example.com"],
     )
     PORT: int = Field(
-        5672,
-        description="Port number for the database connection",
+        5432,
+        description="Port number for the database connection (PostgreSQL default 5432)",
         title="Database port",
-        examples=[5672, 15672],
+        examples=[5432, 5433],
     )
     EXTERNAL_PORT: int = Field(
-        15672,
-        description="External port number for the database connection",
+        5432,
+        description="External port number for the database connection (PostgreSQL default 5432)",
         title="Database external port",
-        examples=[15672, 25672],
+        examples=[5432, 5433],
     )
     SCHEMA: str = Field(
         "public",

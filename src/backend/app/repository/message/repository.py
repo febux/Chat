@@ -1,10 +1,11 @@
 """
 Message repository module for CRUD operations on Message model.
 """
+from datetime import UTC, datetime
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, desc, or_, select
+from sqlalchemy import and_, desc, or_, select, update
 
 from src.backend.app.models import Message
 from src.backend.app.repository.meta import AbstractRepository
@@ -37,15 +38,19 @@ class MessageRepository(AbstractRepository[Message]):
         :param before_id: ID of the oldest message currently shown (for scrolling up)
         :return: Sequence of messages, oldest-first
         """
-        base_where = or_(
-            and_(
-                self.model.sender_id == sender_id,
-                self.model.channel_id == recipient_id,
+        base_where = and_(
+            or_(
+                and_(
+                    self.model.sender_id == sender_id,
+                    self.model.channel_id == recipient_id,
+                ),
+                and_(
+                    self.model.sender_id == recipient_id,
+                    self.model.channel_id == sender_id,
+                ),
             ),
-            and_(
-                self.model.sender_id == recipient_id,
-                self.model.channel_id == sender_id,
-            ),
+            # Exclude soft-deleted messages so they never appear in history.
+            self.model.deleted_at.is_(None),
         )
 
         query = select(self.model).where(base_where)
@@ -125,7 +130,11 @@ class MessageRepository(AbstractRepository[Message]):
         :param before_id: ID of the oldest message currently shown (for scrolling up)
         :return: Sequence of messages, oldest-first
         """
-        base_where = self.model.channel_id == channel_id
+        base_where = and_(
+            self.model.channel_id == channel_id,
+            # Exclude soft-deleted messages so they never appear in history.
+            self.model.deleted_at.is_(None),
+        )
         query = select(self.model).where(base_where)
 
         if before_id:
@@ -151,6 +160,24 @@ class MessageRepository(AbstractRepository[Message]):
         messages = list(result.scalars().all())
         messages.reverse()
         return messages
+
+    async def soft_delete(self, message_id: UUID) -> bool:
+        """
+        Mark a message as soft-deleted by setting ``deleted_at``.
+
+        The row is retained for history/audit; every read path filters
+        ``deleted_at IS NULL`` so it disappears from listings. Only a currently
+        non-deleted row is affected, so calling this twice is a no-op.
+
+        :param message_id: ID of the message to soft-delete.
+        :return: True if a row was updated, False if it was not found or already deleted.
+        """
+        result = await self.session.execute(
+            update(self.model)
+            .where(self.model.id == message_id, self.model.deleted_at.is_(None))
+            .values(deleted_at=datetime.now(UTC))
+        )
+        return result.rowcount > 0
 
 
 repository = MessageRepository

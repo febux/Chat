@@ -15,6 +15,7 @@ from src.backend.common.exceptions.api.password_exceptionx import (
     IncorrectEmailOrPasswordError, PasswordMismatchError)
 from src.backend.common.exceptions.api.user_exceptions import \
     UserAlreadyExistsError
+from src.backend.middleware.rate_limit_middleware import default_limiter
 from src.backend.schemas.users.user_auth import UserAuth
 from src.backend.schemas.users.user_get import User
 from src.backend.schemas.users.user_register import UserRegister
@@ -31,7 +32,9 @@ router = APIRouter()
     description="Register a new user",
     summary="Register a new user",
 )
+@default_limiter.limit("5/minute")
 async def register_user(
+    request: Request,
     user_data: UserRegister,
     service: Annotated[UserServiceMeta, Depends(get_user_api_service)],
 ) -> dict:
@@ -86,6 +89,7 @@ async def logout(
     status_code=200,
     response_model_exclude_unset=True,
 )
+@default_limiter.limit("5/minute")
 async def login(
     user_data: UserAuth,
     request: Request,
