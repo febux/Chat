@@ -104,11 +104,14 @@ class MessageRepository(AbstractRepository[Message]):
         messages = await self.get_messages_between_users(
             sender_id=sender_id,
             recipient_id=recipient_id,
-            limit=limit,
+            limit=limit + 1,
             before_id=before_id,
         )
 
-        has_more = len(messages) == limit
+        has_more = len(messages) > limit
+        # The repo returns rows oldest-first, so the oldest peek-ahead row sits
+        # at index 0; drop it so callers get exactly ``limit`` messages.
+        messages = messages[1:] if has_more else messages
 
         return messages, has_more
 

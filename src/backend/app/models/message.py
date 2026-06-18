@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, DateTime, ForeignKey, Index
+from sqlalchemy import UUID, DateTime, ForeignKey, Index, column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,11 +43,13 @@ class Message(BaseProps):
     )
 
     __table_args__ = (
-        # индекс для выборки истории по каналу с сортировкой по времени
+        # Composite index backing channel history read latest-first. The
+        # created_at segment is DESC so it serves ORDER BY created_at DESC,
+        # id DESC with a forward scan (and the index name is now truthful).
         Index(
             "ix_messages_channel_created_at_desc",
-            "channel_id",
-            "created_at",
+            column("channel_id"),
+            column("created_at").desc(),
             postgresql_using="btree",
         ),
     )

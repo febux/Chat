@@ -33,11 +33,17 @@ async def get_channel_messages(
 ) -> MessageList:
     if not await service.is_channel_member(channel_id, current_user.id):
         raise HTTPException(status_code=403, detail="User is not a member of this channel")
+    # Fetch one extra row to detect the end of history without an extra
+    # round-trip: if more than ``limit`` rows come back, older messages exist.
     messages = await service.get_messages_for_channel(
         channel_id=channel_id,
-        limit=limit,
+        limit=limit + 1,
         before_id=before_id,
     )
+    has_more = len(messages) > limit
+    # The repo returns rows oldest-first, so the oldest peek-ahead row sits at
+    # index 0; drop it so the client receives exactly ``limit`` messages.
+    page = messages[1:] if has_more else messages
 
     return MessageList(
         messages=[
@@ -48,10 +54,10 @@ async def get_channel_messages(
                 content=m.content,
                 created_at=m.created_at.isoformat(),
             )
-            for m in messages
+            for m in page
         ],
-        has_more=len(messages) == limit,
-        next_before_id=messages[0].id if messages else None,
+        has_more=has_more,
+        next_before_id=page[0].id if page else None,
     )
 
 

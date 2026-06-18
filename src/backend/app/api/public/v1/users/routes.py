@@ -21,7 +21,7 @@ router = APIRouter(tags=["user"])
 
 @router.get(
     "",
-    description="Get all users except for the current user",
+    description="Get the current user's contacts",
     response_model=list[User],
 )
 async def get_users(
@@ -30,10 +30,11 @@ async def get_users(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Sequence[User]:
     """
-    Get all users from the database except for the current user.
+    Get the current user's contacts (the users linked via POST /contact).
 
     :param request: The FastAPI Request object.
-    :return: A list of all users.
+    :param current_user: The authenticated user.
+    :return: A list of the current user's contacts.
     """
     return await service.get_current_user_contacts(user_id=current_user.id)
 

@@ -77,8 +77,8 @@ case). Frontend callers must send `{"email": "..."}` instead of a path segment.
 Severity legend: [CRIT] security/correctness/data-integrity, [HI] performance or
 logic bug with real user impact, [MED] quality/maintainability, [LOW] hygiene.
 Items below need a decision or a code change. The three [CRIT] items (#20–#22),
-the four [HI] items (#23–#26), and the seven [MED] items (#27–#33) were resolved
-in follow-up passes; only the [LOW] items (#34) remain open.
+the four [HI] items (#23–#26), the seven [MED] items (#27–#33), and the [LOW]
+items (#34) have all been resolved in follow-up passes.
 
 ## [CRIT] #20 — No channel-membership authorization on message endpoints — RESOLVED
 
@@ -278,7 +278,35 @@ now pass `cors_allowed_origins=settings.app.CORS_ORIGINS` instead of the literal
 `cors_allowed_origins=["*"]` combined with cookie-based WS auth is a cross-site
 WebSocket risk. Restrict to the frontend origin outside dev.
 
-## [LOW] #34 — Pool/misleading-comment hygiene
+## [LOW] #34 — Pool/misleading-comment hygiene — RESOLVED
+
+**Resolved:** All six hygiene items fixed:
+
+- `session_manager.py:50` — `pool_use_lifo` is now `True` (LIFO keeps fewer
+  connections warm; the recommended setting for async pools). The old comment
+  claimed "use LIFO" while the value was `False`.
+- `session_manager.py:126` — `asyncio.shield(session.close())` in the `finally`
+  block replaced with a plain `await session.close()`. The `import asyncio` is
+  gone (it was the only use).
+- `channel_member.py:33` — `joined_at` default switched from the deprecated
+  naive `datetime.utcnow` to `lambda: datetime.now(UTC)` (timezone-aware, on a
+  `DateTime(timezone=True)` column).
+- `message.py` — the `ix_messages_channel_created_at_desc` index is now
+  genuinely DESC on `created_at` (`column("created_at").desc()`), so it serves
+  the `ORDER BY created_at DESC, id DESC` read path with a forward scan and the
+  name is no longer misleading. A new migration
+  (`migrations/versions/2026-06-18-00-00-7f3a9c2e1b4d_messages_index_desc.py`,
+  chains after `e908fde3f956`) drops and recreates the index DESC, keeping model
+  and DB in sync.
+- `message/routes.py` — `has_more` no longer uses the `len == limit`
+  off-by-one. The route now fetches `limit + 1` rows and sets
+  `has_more = len > limit`, dropping the oldest peek-ahead row so the client
+  gets exactly `limit` and never gets a trailing empty page. The same fix was
+  applied to the sibling `MessageRepository.get_messages_between_users_paginated`.
+- `users/routes.py` — `GET /users` description/docstring corrected: it returns
+  the current user's contacts, not "all users except current".
+
+Original notes:
 - `session_manager.py:49` — `pool_use_lifo=False` with a comment saying "use LIFO";
   LIFO (`True`) is the recommended setting for async pools (keeps fewer conns warm).
 - `session_manager.py:125` — `asyncio.shield(session.close())` in `finally` is

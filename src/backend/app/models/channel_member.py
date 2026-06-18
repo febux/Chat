@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import UUID, DateTime, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import ENUM
@@ -30,7 +30,7 @@ class ChannelMember(BaseProps):
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
     )
 
     # relationships

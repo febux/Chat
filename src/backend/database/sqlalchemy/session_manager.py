@@ -2,7 +2,6 @@
 Session manager for managing database connections.
 """
 
-import asyncio
 import contextlib
 from typing import AsyncIterator, Optional
 
@@ -47,7 +46,7 @@ class DatabaseSessionManager:
             pool_timeout=self.settings.db.POOL_TIMEOUT,  # maximum time in seconds a connection can be idle before being recycled
             pool_recycle=POOL_RECYCLE,  # kill stale connections
             pool_pre_ping=True,  # avoid slow first query on dead conns
-            pool_use_lifo=False,  # use LIFO order for connection retrieval
+            pool_use_lifo=True,  # LIFO keeps fewer connections warm (recommended for async pools)
         )
         self._sessionmaker = async_sessionmaker(
             bind=self._engine,
@@ -123,7 +122,7 @@ class DatabaseSessionManager:
                 await session.rollback()
                 raise
             finally:
-                await asyncio.shield(session.close())
+                await session.close()
 
     @contextlib.asynccontextmanager
     async def connect(self) -> AsyncIterator[AsyncConnection]:
