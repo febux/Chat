@@ -3,7 +3,7 @@ This module defines the protocol for Channel services.
 """
 
 from abc import abstractmethod
-from typing import Protocol, Optional, Sequence
+from typing import Optional, Protocol, Sequence
 from uuid import UUID
 
 from src.backend.app.models.enums import ChannelType

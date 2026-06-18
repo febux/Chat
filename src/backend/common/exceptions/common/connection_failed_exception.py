@@ -2,7 +2,8 @@
 Connection failed exception class definition.
 """
 
-from src.backend.common.exceptions.common.base_app_exception import BaseAppException
+from src.backend.common.exceptions.common.base_app_exception import \
+    BaseAppException
 
 
 class ConnectionFailedException(BaseAppException):

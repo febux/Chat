@@ -2,6 +2,7 @@
 Channel member repository module for CRUD operations on ChannelMember model.
 """
 from typing import Sequence
+from uuid import UUID
 
 from sqlalchemy import select
 
@@ -16,7 +17,7 @@ class ChannelMemberRepository(AbstractRepository[ChannelMember]):
 
     _model = ChannelMember
 
-    async def get_all_channel_members_by_channel_id(self, channel_id: int) -> Sequence[ChannelMember]:
+    async def get_all_channel_members_by_channel_id(self, channel_id: UUID) -> Sequence[ChannelMember]:
         query = select(self._model).filter(self._model.channel_id == channel_id)
         result = await self.session.execute(query)
         return result.scalars().all()

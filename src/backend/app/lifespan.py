@@ -12,7 +12,10 @@ from src.backend.config.main import settings
 from src.backend.core.adapters_loader import auto_register_adapters
 from src.backend.core.logger.logger_factory import logger_bind
 from src.backend.core.redis.client import redis_client_factory
+from src.backend.database.sqlalchemy.orm_manager import OrmRepositoryManager
 from src.backend.database.sqlalchemy.utils import sessionmanager
+from src.backend.app.services.centrifugo.service_v1 import \
+    close_centrifugo_http_client
 from src.backend.utils.cascade_lifespans import cascade_lifespan
 
 _logger = logger_bind(settings.app.APP_NAME)
@@ -55,6 +58,16 @@ async def app_lifespan(app_: FastAPI):
         else:
             _logger.info("Socket manager with NATS client connection initialized", url=settings.nats.get_nats_url())
 
+        # Fail fast: eagerly import every repository module so a broken repo
+        # path or missing 'repository' attribute aborts the boot instead of
+        # surfacing as a request-time AttributeError. Validation only imports
+        # modules, so a throwaway manager (no DB session) is sufficient.
+        try:
+            OrmRepositoryManager().validate_repos()
+        except RuntimeError as e:
+            _logger.error(f"Repository validation failed: {e}")
+            raise
+
         # Auto-register adapters
         auto_register_adapters(
             app_,
@@ -74,6 +87,10 @@ async def app_lifespan(app_: FastAPI):
             # Close the DB connection
             await sessionmanager.close()
             _logger.info("Database manager connection closed")
+
+        # Close the shared Centrifugo HTTP client
+        await close_centrifugo_http_client()
+        _logger.info("Centrifugo HTTP client closed")
 
         if app_.state.redis_client:
             await app_.state.redis_client.close()

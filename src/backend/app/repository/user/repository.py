@@ -4,9 +4,9 @@ User repository module for CRUD operations on User model.
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 
-from src.backend.app.models import User
+from src.backend.app.models import User, UserContact
 from src.backend.app.repository.meta import AbstractRepository
 
 
@@ -42,14 +42,18 @@ class UserRepository(AbstractRepository[User]):
         result = await self.session.execute(query)
         return result.scalars().all()
 
-    async def get_all_except_of_current_user(self, user_id: UUID) -> Sequence[User]:
+    async def get_current_user_contacts(self, user_id: UUID) -> Sequence[User]:
         """
-        Retrieve all users except the current user.
+        Retrieve all contacts of the current user.
 
         :param user_id: ID of the user to exclude from the results.
         :return: A list of users.
         """
-        query = select(self.model).filter(self.model.id != user_id)
+        forward = select(UserContact.contact_id).where(UserContact.user_id == user_id)
+        reverse = forward.union(
+            select(UserContact.user_id).where(UserContact.contact_id == user_id)
+        )
+        query = select(self.model).where(self.model.id.in_(reverse))
         result = await self.session.execute(query)
         return result.scalars().all()
 

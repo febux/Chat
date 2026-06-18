@@ -9,8 +9,8 @@ from pydantic_settings import BaseSettings
 
 from src.backend.config.env_config.app import AppConfig
 from src.backend.config.env_config.db import DatabaseConfig
-from src.backend.config.env_config.redis import RedisConfig
 from src.backend.config.env_config.nats import NATSConfig
+from src.backend.config.env_config.redis import RedisConfig
 
 
 class Settings(BaseSettings):

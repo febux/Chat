@@ -22,6 +22,7 @@ class MessageService:
         self.logger = logger_bind("MessageService")
 
         self.message_repo = self.orm_manager.message
+        self.channel_member_repo = self.orm_manager.channel_member
 
     async def get_all(
         self,
@@ -117,3 +118,21 @@ class MessageService:
             limit=limit,
             before_id=before_id,
         )
+
+    async def is_channel_member(
+        self,
+        channel_id: UUID,
+        user_id: UUID,
+    ) -> bool:
+        """
+        Check whether a user is a member of the given channel.
+
+        :param channel_id: The ID of the channel.
+        :param user_id: The ID of the user.
+        :return: True if the user is a member of the channel, False otherwise.
+        """
+        membership = await self.channel_member_repo.read_one(
+            channel_id=channel_id,
+            user_id=user_id,
+        )
+        return membership is not None

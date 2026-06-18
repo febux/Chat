@@ -12,16 +12,9 @@ __all__ = (
     "str_null_true",
 )
 
-from src.backend.database.sqlalchemy.base import (
-    Base,
-    BaseProps,
-    created_at,
-    date_db,
-    int_pk,
-    str_null_true,
-    str_uniq,
-    updated_at,
-    uuid_pk,
-)
+from src.backend.database.sqlalchemy.base import (Base, BaseProps, created_at,
+                                                  date_db, int_pk,
+                                                  str_null_true, str_uniq,
+                                                  updated_at, uuid_pk)
 from src.backend.database.sqlalchemy.session_manager import sessionmanager
 from src.backend.database.sqlalchemy.utils import get_session

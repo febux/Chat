@@ -1,159 +1,210 @@
+# =============================================================================
+#  FastAPIChat Makefile — run `make` or `make help` for the command list.
+#
+#  Conventions:
+#    * A `## comment` after any target is shown automatically by `make help`.
+#    * Any `?=` variable can be overridden on the CLI, e.g.
+#         make test PYTEST_ARGS="-k users"
+#         make db.migrate msg="add contact table"
+# =============================================================================
 SHELL := /bin/bash
+.DEFAULT_GOAL := help
+
+# --- Paths / identity --------------------------------------------------------
 CWD := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-ME := $(shell whoami)
+ME  := $(shell whoami)
 
-#include .env
+# --- Configurable tools (override with VAR=value) ----------------------------
+# pytest MUST run via the backend member-venv interpreter: the `src/` tree is a
+# namespace package resolved relative to the repo root, so isolated runners
+# (`uvx pytest`, `uv run`) cannot import fastapi/app modules.
+PY          ?= src/backend/.venv/bin/python
+PYTEST      ?= $(PY) -m pytest
+PYTEST_ARGS ?=
+SRC_DIR     ?= src
 
+# docker compose shorthand (was repeated on every db/* target)
+COMPOSE     ?= docker compose -f docker-compose.yaml
+# Build the manager image and run a one-off alembic command inside it.
+ALEMBIC     := $(COMPOSE) build manager && $(COMPOSE) run --rm --no-deps manager alembic
 
-help:
-	@echo "- up: Start the application in development mode"
-	@echo "- test: Run the test suite"
-	@echo "- lint: Run linters (ruff, black, isort)"
-	@echo "- format: Format the code using black and isort"
-	@echo "- check: Run all checks (linting, formatting, and tests)"
-	@echo "- clean: Remove all generated files"
-	@echo "- fix_own: Fix permissions for the current user for migrations folder"
-	@echo "- project.sync.clean: Sync the project virtual environment cleanly, without dev libs"
-	@echo "- project.sync: Sync the project virtual environment"
-	@echo "- project.install: Install pre-commit hooks and dependencies"
-	@echo "- project.doc-string: Generate documentation strings"
-	@echo "- project.docs-gen: Generate documentation"
-	@echo "- project.compile-deps: Compile dependencies"
-	@echo "- black-check: Check if the code is black-formatted"
-	@echo "- black-format: Format the code using black"
-	@echo "- isort: Sort imports using isort"
-	@echo "- interrogate: Generate documentation strings using interrogate"
-	@echo "- ruff: Check if the code is ruff-formatted"
-	@echo "- ruff-format: Format the code using ruff"
-	@echo "- bandit: Check for common security vulnerabilities using bandit"
-	@echo "- pysentry: Security audit python libraries"
-	@echo "- mypy: Check for type errors using mypy"
-	@echo "- pyright: Check for type errors using pyright"
-	@echo "- db.local.downgrade: Alembic downgrade local"
-	@echo "- db.local.upgrade: Alembic upgrade local"
-	@echo "- db.local.migrate: Alembic migrate local"
-	@echo "- db.local.alembic-shell: Alembic shell local"
-	@echo "- db.downgrade: Alembic downgrade"
-	@echo "- db.upgrade: Alembic upgrade"
-	@echo "- db.migrate: Alembic migrate"
-	@echo "- db.alembic-shell: Alembic shell"
+# Expose .env values to recipes that reference them as Make variables only.
+# NOT exported (no `export` directive) so e.g. `make test` keeps a clean env.
+ifneq (,$(wildcard .env))
+  include .env
+endif
 
+# --- Fail fast if a required tool is missing (checked at parse time) ---------
+REQUIRED_BINS := uv docker
+$(foreach bin,$(REQUIRED_BINS),\
+  $(if $(shell command -v $(bin) 2>/dev/null),,\
+    $(error Required tool "$(bin)" is not installed or not on PATH)))
 
+# --- All phony targets in one place ------------------------------------------
+.PHONY: help \
+        project.fix_own project.sync.clean project.sync project.install \
+        project.doc-string project.docs-gen project.compile-deps \
+        black-check black-format isort ruff-check ruff-format \
+        bandit pysentry test mypy pyright typecheck pre-commit \
+        lint format check clean clean.docker \
+        db.upgrade db.migrate db.downgrade db.alembic-shell \
+        db.local.upgrade db.local.migrate db.local.downgrade db.local.alembic-shell \
+        up up.local startup startup.local \
+        down down.volumes logs ps restart shell db.shell health \
+        confirm
 
-### Common commands
-project.fix_own:
+# =============================================================================
+#  Help — auto-generated from `## ` comments (trick #1)
+# =============================================================================
+help: ## Show this help message
+	@printf "FastAPIChat — available targets\n"
+	@printf "Usage: make <target> [VAR=value ...]\n\n"
+	@awk 'BEGIN {FS = ":.*## "} \
+	     /^[a-zA-Z0-9_.%-]+:.*?## / \
+	       {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' \
+	     $(MAKEFILE_LIST)
+
+### Project -------------------------------------------------------------------
+project.fix_own: ## Fix ownership of the migrations/ folder (needs sudo)
 	@echo "me: $(ME)"
 	sudo chown $(ME):$(ME) -R ./migrations
 
-
-### Project commands
-project.sync.clean:
+project.sync.clean: ## Sync the venv WITHOUT dev dependencies
 	uv sync -U --no-dev
 
-project.sync:
+project.sync: ## Sync the project virtual environment
 	uv sync -U
 
-project.install:
+project.install: ## Install dependencies + pre-commit hooks
 	pre-commit && \
 	pre-commit install --hook-type pre-commit --hook-type pre-push
 
-project.doc-string:
+project.doc-string: ## Check doc-string coverage (interrogate)
 	interrogate -c pyproject.toml src
 
-project.docs-gen:
+project.docs-gen: ## Build the Sphinx HTML documentation
 	uvx sphinx-build -M html docs/source/ docs/build/
 
-project.compile-deps:
+project.compile-deps: ## Compile pinned requirements.txt from pyproject.toml
 	uv pip compile pyproject.toml -o requirements.txt
 
-
-### Linters commands
-black-check:
+### Linters & formatters ------------------------------------------------------
+black-check: ## Check formatting with black
 	uvx black src --check
 
-black-format:
+black-format: ## Format code with black
 	uvx black src
 
-isort:
+isort: ## Sort imports with isort
 	uvx isort src
 
-ruff-check:
+ruff-check: ## Lint with ruff
 	uvx ruff check src
 
-ruff-format:
+ruff-format: ## Auto-fix with ruff
 	uvx ruff check src --fix
 
-bandit:
-	bandit -r -c pyproject.toml -r .
+bandit: ## Scan for common security issues (bandit)
+	bandit -r -c pyproject.toml .
 
-pysentry:
+pysentry: ## Audit installed Python libraries (pysentry)
 	uvx pysentry-rs ./
 
-test:
-	uvx pytest
-
-mypy:
+mypy: ## Static type-check with mypy
 	uvx mypy src
 
-pyright:
+pyright: ## Static type-check with pyright
 	uvx pyright
 
-lint: isort black-check ruff-check bandit pysentry
+ty:
+	uvx ty check src/backend
 
-format: isort black-format ruff-format bandit pysentry
+typecheck: mypy pyright ## Run mypy + pyright
 
-check: lint test
+pre-commit: ## Run every pre-commit hook across all files
+	pre-commit run --all-files
 
-# Database commands
-msg?="Upgrade database tables"
+lint: isort ruff-check bandit pysentry ## Run all linters
 
-db.local.downgrade:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic downgrade -1
+format: isort ruff-format ## Format the whole codebase
 
-db.local.migrate:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic revision --autogenerate -m $(msg)
+### Tests ---------------------------------------------------------------------
+test: ## Run the test suite (member-venv interpreter, from repo root)
+	$(PYTEST) $(PYTEST_ARGS)
 
-db.local.upgrade:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic upgrade head
+check: lint test ## Full pre-push gate: lint, then test
 
-db.local.alembic-shell:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic $(cmd)
+### Cleanup -------------------------------------------------------------------
+clean: ## Remove Python caches and local build artifacts
+	@find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache \
+		-o -name .mypy_cache -o -name .ipynb_checkpoints \) -prune -exec rm -rf {} +
+	@rm -rf docs/build .coverage *.egg-info
 
-db.downgrade:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic downgrade -1
+clean.docker: ## Remove stopped service containers + dangling images (keeps volumes)
+	-$(COMPOSE) rm -f -s
+	-docker image prune -f
 
-db.migrate:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic revision --autogenerate -m $(msg)
+### Database (Alembic via the compose `manager` service) ----------------------
+# `db.local.*` targets are kept as aliases of `db.*` — they behaved identically
+# before (same compose command), so they now simply forward. Split them apart
+# later if a local override compose file is introduced.
+msg ?= Upgrade database tables
 
-db.upgrade:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic upgrade head
+db.upgrade: ## Apply all migrations (alembic upgrade head)
+	$(ALEMBIC) upgrade head
+db.local.upgrade: db.upgrade ## (alias) Apply migrations — same as db.upgrade
 
-db.alembic-shell:
-	docker compose -f docker-compose.yaml build manager && \
-	docker compose -f docker-compose.yaml run --rm --no-deps manager alembic $(cmd)
+db.migrate: ## Create a revision: make db.migrate msg="add contact table"
+	$(ALEMBIC) revision --autogenerate -m "$(msg)"
+db.local.migrate: db.migrate ## (alias) Create a migration — same as db.migrate
 
-### Application commands
-up.local:
-	docker compose up --remove-orphans --build -d \
-		backend \
-		frontend \
-		redis \
-		nats \
-		centrifugo \
-		db
+db.downgrade: ## Roll back the last migration (alembic downgrade -1)
+	$(ALEMBIC) downgrade -1
+db.local.downgrade: db.downgrade ## (alias) Roll back — same as db.downgrade
 
-up:
-	docker compose up --remove-orphans --build -d \
-		backend \
-		frontend
+db.alembic-shell: ## Run any alembic cmd: make db.alembic-shell cmd="current"
+	$(ALEMBIC) $(cmd)
+db.local.alembic-shell: db.alembic-shell ## (alias) Alembic shell — same as db.alembic-shell
 
-startup.local: up.local db.local.upgrade
+### Application (docker compose) ----------------------------------------------
+up: ## Build & start backend + frontend (detached)
+	$(COMPOSE) up --remove-orphans --build -d backend frontend
 
-startup: up db.upgrade
+up.local: ## Build & start the FULL local stack (db, redis, nats, centrifugo, ...)
+	$(COMPOSE) up --remove-orphans --build -d \
+		backend frontend redis nats centrifugo db
+
+startup: up db.upgrade ## Start core services, then apply migrations
+startup.local: up.local db.local.upgrade ## Start the full stack, then apply migrations
+
+down: ## Stop and remove containers (keeps named volumes / data)
+	$(COMPOSE) down
+
+down.volumes: confirm ## Stop & REMOVE containers + named volumes (data loss!)
+	$(COMPOSE) down -v
+
+logs: ## Tail logs from all services (Ctrl-C to exit)
+	$(COMPOSE) logs -f --tail=100
+
+ps: ## Show running compose containers
+	$(COMPOSE) ps
+
+restart: ## Restart backend + frontend
+	$(COMPOSE) restart backend frontend
+
+shell: ## Open a bash shell inside the backend container
+	$(COMPOSE) exec backend bash
+
+db.shell: ## Open a psql shell inside the db container
+	$(COMPOSE) exec db psql -U "$(DATABASE_USER)" -d "$(DATABASE_SCHEMA)"
+
+health: ## Hit the backend healthcheck endpoint
+	@curl -fsS "http://localhost:$(SERVER_EXTERNAL_PORT)/api/v1/healthcheck" \
+		&& printf "  -> OK\n" || (printf "  -> FAIL\n"; exit 1)
+
+### Safety guards (used as prerequisites by other targets) --------------------
+confirm: ## Prompt y/N confirmation (internal — used by destructive targets)
+	@echo -n "Are you sure? [y/N] " && read ans && [ "$${ans:-N}" = y ]
+
+guard-%: ## Require a variable: make guard-DATABASE_URL ...
+	@if [ -z '$($*)' ]; then echo "ERROR: variable '$*' is not set"; exit 1; fi

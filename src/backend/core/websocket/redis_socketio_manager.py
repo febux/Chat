@@ -1,14 +1,13 @@
 """
 Websocket manager using FastAPI-SocketIO with Redis scaling support.
 """
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 import socketio
 from fastapi import FastAPI, HTTPException
-from jose import jwt, ExpiredSignatureError
-from jwt import InvalidTokenError
+from jose import ExpiredSignatureError, JWTError, jwt
 
 from src.backend.config.main import settings
 from src.backend.core.logger.logger_factory import logger_bind
@@ -106,7 +105,7 @@ class ConnectionManager:
 
         except ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")
-        except InvalidTokenError:
+        except JWTError:
             raise HTTPException(status_code=401, detail="Invalid token")
         except Exception as e:
             logger.error(f"Token validation error: {e}")

@@ -3,10 +3,11 @@ NATS client using asyncio for asynchronous NATS operations.
 """
 
 import asyncio
-from typing import Any, Callable, Awaitable
+from typing import Any, Awaitable, Callable
 
 from nats.aio.client import Client as NATS
-from nats.errors import ConnectionClosedError, TimeoutError, NoServersError
+from nats.errors import ConnectionClosedError, NoServersError
+from nats.errors import TimeoutError as NATSTimeoutError
 
 from src.backend.core.logger.logger_factory import logger_bind
 
@@ -95,7 +96,7 @@ class NATSClient:
         for attempt in range(retries):
             try:
                 return await func(*args, **kwargs)
-            except (ConnectionClosedError, TimeoutError) as e:
+            except (ConnectionClosedError, NATSTimeoutError) as e:
                 last_exc = e
                 logger.warning(f"Attempt {attempt + 1}/{retries} failed: {e}. Reconnecting...")
                 await self._reconnect()

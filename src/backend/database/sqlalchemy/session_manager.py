@@ -6,7 +6,8 @@ import asyncio
 import contextlib
 from typing import AsyncIterator, Optional
 
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncConnection, AsyncEngine, AsyncSession,
+                                    async_sessionmaker, create_async_engine)
 
 from src.backend.config.main import Settings, settings
 from src.backend.core.logger.logger_factory import logger_bind

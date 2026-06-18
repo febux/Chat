@@ -4,7 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
-from src.backend.app.providers.centrifugo.provider_v1 import get_centrifugo_api_service
+from src.backend.app.providers.centrifugo.provider_v1 import \
+    get_centrifugo_api_service
 from src.backend.app.services.centrifugo.meta import CentrifugoServiceMeta
 from src.backend.app.utils.current_user import get_current_user
 from src.backend.schemas.users.user_get import User

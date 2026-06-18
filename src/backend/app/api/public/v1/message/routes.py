@@ -4,17 +4,19 @@ Message API routes for the application.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from src.backend.app.providers.centrifugo.provider_v1 import get_centrifugo_api_service
+from src.backend.app.providers.centrifugo.provider_v1 import \
+    get_centrifugo_api_service
+from src.backend.app.providers.message.provider_v1 import \
+    get_message_api_service
 from src.backend.app.services.centrifugo.meta import CentrifugoServiceMeta
+from src.backend.app.services.message.meta import MessageServiceMeta
 from src.backend.app.utils.current_user import get_current_user
+from src.backend.schemas.messages.message_create import ChannelMessageCreate
 from src.backend.schemas.messages.message_get import Message
 from src.backend.schemas.messages.message_list import MessageList
-from src.backend.app.providers.message.provider_v1 import get_message_api_service
-from src.backend.app.services.message.meta import MessageServiceMeta
-from src.backend.schemas.messages.message_create import ChannelMessageCreate
 from src.backend.schemas.users.user_get import User
 
 router = APIRouter(tags=["message"])
@@ -28,7 +30,8 @@ async def get_channel_messages(
     limit: int = Query(30, ge=1, le=100),
     before_id: UUID | None = None,
 ) -> MessageList:
-    # опционально: проверить, что current_user состоит в канале
+    if not await service.is_channel_member(channel_id, current_user.id):
+        raise HTTPException(status_code=403, detail="User is not a member of this channel")
     messages = await service.get_messages_for_channel(
         channel_id=channel_id,
         limit=limit,
@@ -59,6 +62,8 @@ async def send_message(
     centrifugo_service: Annotated[CentrifugoServiceMeta, Depends(get_centrifugo_api_service)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    if not await service.is_channel_member(message.channel_id, current_user.id):
+        raise HTTPException(status_code=403, detail="User is not a member of this channel")
     message = await service.create(
         sender_id=current_user.id,
         content=message.content,

@@ -12,7 +12,8 @@ from loguru._colorizer import Colorizer
 from loguru._datetime import aware_now
 from loguru._get_frame import get_frame
 from loguru._logger import Logger
-from loguru._recattrs import RecordException, RecordFile, RecordLevel, RecordProcess, RecordThread
+from loguru._recattrs import (RecordException, RecordFile, RecordLevel,
+                              RecordProcess, RecordThread)
 
 _tuple: tuple = tuple()
 context: ContextVar = ContextVar("loguru_context", default={})

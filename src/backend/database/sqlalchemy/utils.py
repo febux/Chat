@@ -22,7 +22,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database.sqlalchemy.base import Base
-from src.backend.database.sqlalchemy.session_manager import logger, sessionmanager
+from src.backend.database.sqlalchemy.session_manager import (logger,
+                                                             sessionmanager)
 
 
 @event.listens_for(sessionmanager.engine.sync_engine, "handle_error")

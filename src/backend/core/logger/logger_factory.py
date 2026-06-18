@@ -9,7 +9,6 @@ import sys
 
 from src.backend.app.context import cid, tenant
 from src.backend.config.main import settings
-
 # noinspection PyUnresolvedReferences
 from src.backend.core.logger import logger
 from src.backend.core.logger.app_logger import AppLogger

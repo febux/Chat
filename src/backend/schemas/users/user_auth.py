@@ -1,6 +1,7 @@
 from pydantic import Field
 
-from src.backend.schemas.base import BaseSnakeRequest, UserEmail, NonEmptyString
+from src.backend.schemas.base import (BaseSnakeRequest, NonEmptyString,
+                                      UserEmail)
 
 
 class UserAuth(BaseSnakeRequest):

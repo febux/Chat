@@ -4,7 +4,8 @@ Empty result error exception class definition.
 
 from starlette import status
 
-from src.backend.common.exceptions.api.client_exception import ClientAPIException
+from src.backend.common.exceptions.api.client_exception import \
+    ClientAPIException
 
 
 class EmptyResultError(ClientAPIException):

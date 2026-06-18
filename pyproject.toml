@@ -1,2 +1,66 @@
 [tool.uv.workspace]
 members = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/backend/tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+addopts = "-ra -vv --tb=native"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::ImportWarning",
+    "ignore::ResourceWarning",
+]
+
+[tool.bandit]
+# `make bandit` runs `bandit -r -c pyproject.toml .` from the repo root, so
+# THIS (root) config is what governs. Settings that previously lived in
+# src/backend/pyproject.toml were silently ignored — they are merged in here.
+#
+# Exclude vendored / generated / non-Python trees from the recursive scan.
+# Without this, bandit crawls the backend virtualenv (~5700 third-party .py
+# files) and takes over a minute, surfacing thousands of bogus issues.
+# Bandit excludes a path if the entry matches the full path OR is a substring
+# of it, so these concrete paths are matched cleanly.
+exclude_dirs = [
+    "src/backend/.venv", # backend site-packages (the main offender)
+    ".venv",             # root-level virtualenv, if present
+    "node_modules",      # frontend dependencies (non-Python)
+    "docs/build",        # generated Sphinx HTML output
+    "tests",             # test code (asserts, mocks)
+    "config",            # non-source config
+    "srv",               # dockerfiles / infra
+    "src/frontend",      # frontend (non-Python)
+]
+# Skip noisy rules: B101 (use of assert) common in tests; B601 (paramiko) N/A.
+skips = ["B101", "B601"]
+
+[tool.interrogate]
+# `make project.doc-string` runs `interrogate -c pyproject.toml src` from the
+# repo root, so THIS config governs. The block below previously lived (dead) in
+# src/backend/pyproject.toml and was ignored.
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = false
+ignore-nested-functions = true
+ignore-nested-classes = true
+ignore-setters = true
+ignore-overloaded-functions = true
+fail-under = 80
+# NOTE: without excluding the virtualenv, `interrogate src` descends into
+# src/backend/.venv and crashes on third-party files using Python 2 syntax.
+exclude = ["tests", "docs", "config", "src/backend/.venv", ".venv", "node_modules"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
+ext = []
+style = "sphinx"
+# possible values: 0 (minimal output), 1 (-v), 2 (-vv)
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
+omit-covered-files = false

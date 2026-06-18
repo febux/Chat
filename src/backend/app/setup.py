@@ -36,10 +36,13 @@ from src.backend.core.opentelemetry.tracing import init_tracing
 from src.backend.core.routes_loader import auto_register_routes
 from src.backend.database.sqlalchemy.utils import sessionmanager
 from src.backend.middleware.etag_middleware import ETagMiddleware
-from src.backend.middleware.exception_middleware import ExceptionHandlerMiddleware
+from src.backend.middleware.exception_middleware import \
+    ExceptionHandlerMiddleware
 from src.backend.middleware.logger_middleware import LoggingMiddleware
-from src.backend.middleware.maintenance_mode_middleware import MaintenanceModeMiddleware
-from src.backend.middleware.monitor_performance import PerformanceMonitorMiddleware
+from src.backend.middleware.maintenance_mode_middleware import \
+    MaintenanceModeMiddleware
+from src.backend.middleware.monitor_performance import \
+    PerformanceMonitorMiddleware
 from src.backend.middleware.rate_limit_middleware import default_limiter
 from src.backend.middleware.request_id_middleware import RequestIDMiddleware
 

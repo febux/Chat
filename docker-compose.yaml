@@ -36,8 +36,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      nats:
-        condition: service_started
+      centrifugo:
+        condition: service_healthy
       db:
         condition: service_healthy
     networks:
@@ -73,6 +73,12 @@ services:
       - app_network
       - metrics_network
       - logs_network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:${VITE_PORT}/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
 
   manager:
     build:
@@ -142,7 +148,8 @@ services:
     volumes:
       - ./config/centrifugo.json:/centrifugo/config.json
     depends_on:
-      - nats
+      nats:
+        condition: service_started
     networks:
       - broker_network
       - app_network
@@ -152,6 +159,12 @@ services:
       nofile:
         soft: 65535
         hard: 65535
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   redis:
     image: redis

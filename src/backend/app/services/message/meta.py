@@ -3,8 +3,8 @@ This module defines the protocol for message services.
 """
 
 from abc import abstractmethod
-from uuid import UUID
 from typing import Optional, Protocol, Sequence
+from uuid import UUID
 
 
 class MessageServiceMeta(Protocol):
@@ -89,5 +89,20 @@ class MessageServiceMeta(Protocol):
         :param limit: The maximum number of messages to retrieve.
         :param before_id: The ID of the last message retrieved.
         :return: A sequence of messages.
+        """
+        ...
+
+    @abstractmethod
+    async def is_channel_member(
+        self,
+        channel_id: UUID,
+        user_id: UUID,
+    ) -> bool:
+        """
+        Check whether a user is a member of the given channel.
+
+        :param channel_id: The ID of the channel.
+        :param user_id: The ID of the user.
+        :return: True if the user is a member of the channel, False otherwise.
         """
         ...

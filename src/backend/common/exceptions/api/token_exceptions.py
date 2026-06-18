@@ -3,7 +3,9 @@ Authentication with token exception classes definitions.
 """
 
 from starlette import status
-from src.backend.common.exceptions.api.client_exception import ClientAPIException
+
+from src.backend.common.exceptions.api.client_exception import \
+    ClientAPIException
 
 
 class TokenExpiredError(ClientAPIException):

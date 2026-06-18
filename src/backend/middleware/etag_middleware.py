@@ -3,7 +3,7 @@ ETag middleware with selective caching.
 """
 
 import hashlib
-from typing import List, Optional, Callable
+from typing import Callable, List, Optional
 
 from fastapi import Request
 from fastapi.responses import Response

@@ -13,7 +13,8 @@ from slowapi.util import get_remote_address
 from starlette import status
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.backend.common.exceptions.api.server_exception import ServerAPIException
+from src.backend.common.exceptions.api.server_exception import \
+    ServerAPIException
 from src.backend.config.main import settings
 from src.backend.core.redis.client import RedisClient
 

@@ -95,10 +95,13 @@ class ChannelService:
                 created_by=created_by,
             )
             self.logger.info(f"Channel '{channel.id}' created with members.")
-            for member_id in members:
-                await self.channel_member_repo.create(
-                    channel_id=channel.id,
-                    user_id=member_id,
-                    role=MemberRole.MEMBER,
-                )
+            if members:
+                await self.channel_member_repo.bulk_create([
+                    {
+                        "channel_id": channel.id,
+                        "user_id": member_id,
+                        "role": MemberRole.MEMBER,
+                    }
+                    for member_id in members
+                ])
             return channel.to_dict()

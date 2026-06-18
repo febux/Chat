@@ -4,7 +4,7 @@ Application configuration.
 
 import base64
 
-from pydantic import AliasChoices, Field, computed_field
+from pydantic import AliasChoices, Field, computed_field, model_validator
 
 from src.backend.config.env_config.base import ConfigBase
 
@@ -29,7 +29,7 @@ class AppConfig(ConfigBase):
         APP_NAME (str, optional): The name of the application. Defaults to "Project K API".
         REPO_PATH (str, optional): The path to the repository directory. Defaults to "/path/to/repository".
         JWT_SECRET_KEY (str, optional): The secret key for encrypting and decrypting sensitive data. Defaults to "secret_key".
-        JWT_ALGORITHM (str, optional): The encryption algorithm for sensitive data. Defaults to "AES-256-CBC".
+        JWT_ALGORITHM (str, optional): The signing algorithm for JWT tokens. Defaults to "HS256".
         SESSION_SECRET_KEY (str, optional): The secret key for encrypting and decrypting session keys. Defaults to "secret_key".
         SESSION_MAX_AGE (int, optional): The maximum age of a session in seconds. Defaults to 86400 (1 day).
         CSRF_COOKIE (str, optional): The name of the CSRF cookie. Defaults to "csrf_token".
@@ -128,7 +128,7 @@ class AppConfig(ConfigBase):
         examples=["base_app", "my_app"],
     )
     APP_MODE: str = Field(
-        "production",
+        "development",
         description="Mode of the application",
         title="Application mode",
         examples=["production", "development"],
@@ -203,7 +203,7 @@ class AppConfig(ConfigBase):
         title="Centrifugo port",
         examples=[8080, 18080],
     )
-    CENTRIFUGO_EXTERNAL_PORT: int = Field(
+    CENTRIFUGO_EXTERNAL_PORT: int | None = Field(
         None,
         description="External Centrifugo port",
         title="External Centrifugo port",
@@ -245,6 +245,25 @@ class AppConfig(ConfigBase):
         title="HMAC secret key",
         examples=["your-channel-token-hmac-secret-key", "my-channel-token-hmac-secret-key"],
     )
+
+    @model_validator(mode="after")
+    def validate_secrets_in_production(self) -> "AppConfig":
+        """Fail fast if placeholder secrets are left in a non-development environment."""
+        if self.APP_MODE in ("production", "staging", "prod"):
+            insecure_defaults = {
+                "JWT_SECRET_KEY": ("your-secret-key", "secret_key"),
+                "SESSION_SECRET_KEY": ("your-session-secret-key", "secret_key"),
+                "AES_KEY": ("your-aes-key",),
+                "CENTRIFUGO_HTTP_API_KEY": ("your-http-api-key",),
+            }
+            for field_name, bad_values in insecure_defaults.items():
+                value = getattr(self, field_name)
+                if value in bad_values:
+                    raise ValueError(
+                        f"{field_name} must be set to a secure value when "
+                        f"APP_MODE={self.APP_MODE!r}, got the placeholder default."
+                    )
+        return self
 
     @computed_field
     @property

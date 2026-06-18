@@ -11,11 +11,15 @@ from fastapi.responses import JSONResponse
 from starlette import status
 from starlette.responses import RedirectResponse
 
+from src.backend.common.exceptions.api.client_exception import \
+    ClientAPIException
+from src.backend.common.exceptions.api.server_exception import \
+    ServerAPIException
+from src.backend.common.exceptions.api.token_exceptions import (
+    TokenExpiredError, TokenNotFoundError)
 from src.backend.common.exceptions.api.user_exceptions import UserNotFoundError
-from src.backend.common.exceptions.api.token_exceptions import TokenExpiredError, TokenNotFoundError
-from src.backend.common.exceptions.api.server_exception import ServerAPIException
-from src.backend.common.exceptions.api.client_exception import ClientAPIException
-from src.backend.common.exceptions.common.connection_failed_exception import ConnectionFailedException
+from src.backend.common.exceptions.common.connection_failed_exception import \
+    ConnectionFailedException
 
 
 def add_exceptions_handlers(app: FastAPI):

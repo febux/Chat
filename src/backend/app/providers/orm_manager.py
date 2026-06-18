@@ -8,7 +8,7 @@ from fastapi import Depends
 from starlette.requests import Request
 
 from src.backend.app.providers.db import DbSession
-from src.backend.database.sqlalchemy.orm_manager import OrmRepositoryManager, RepositoryManagerMeta, orm_repository_manager
+from src.backend.database.sqlalchemy.orm_manager import OrmRepositoryManager, RepositoryManagerMeta
 
 
 async def get_orm_manager(
@@ -23,8 +23,7 @@ async def get_orm_manager(
     :param session: The database session instance associated with the request.
     :return: An ORM manager instance associated with the request.
     """
-    orm_repository_manager.session = session
-    return orm_repository_manager
+    return OrmRepositoryManager(session)
 
 
 OrmRepositoryManagerProvider = Annotated[RepositoryManagerMeta, Depends(get_orm_manager)]

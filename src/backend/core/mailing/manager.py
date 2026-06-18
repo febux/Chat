@@ -191,7 +191,7 @@ class EmailManager:
         """
         if not checker:
             checker = await self.get_checker()
-        domain = email.split("@")[-1]
+        domain = email.rsplit("@", maxsplit=1)[-1]
         return await checker.check_mx_record(domain, full_result=True)  # type: ignore[return-value]
 
     async def send_email(

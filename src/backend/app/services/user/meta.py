@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import EmailStr
 
+from src.backend.schemas.users.user_get import User
+
 
 class UserServiceMeta(Protocol):
     """
@@ -20,7 +22,7 @@ class UserServiceMeta(Protocol):
         q: str | None = None,
         skip: int = 0,
         limit: int = 10,
-    ) -> Sequence["User"]:  # type: ignore[return-value]
+    ) -> Sequence[User]:
         """
         Retrieving all users with filters and limits.
 
@@ -32,17 +34,17 @@ class UserServiceMeta(Protocol):
         ...
 
     @abstractmethod
-    async def get_all_except_of_current_user(self, user_id: UUID) -> Sequence["User"]:  # type: ignore[return-value]
+    async def get_current_user_contacts(self, user_id: UUID) -> Sequence[User]:
         """
-        Retrieve all users except the current user.
+        Retrieve all contacts of the current user.
 
-        :param user_id: ID of the user to exclude from the results.
+        :param user_id: ID of the user.
         :return: A list of users.
         """
         ...
 
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> Optional["User"]:  # type: ignore[return-value]
+    async def get_by_id(self, user_id: UUID) -> Optional[User]:
         """
         Retrieve a user by its ID.
 
@@ -52,7 +54,7 @@ class UserServiceMeta(Protocol):
         ...
 
     @abstractmethod
-    async def get_by_email(self, email: str) -> Optional["User"]:  # type: ignore[return-value]
+    async def get_by_email(self, email: str) -> Optional[User]:
         """
         Retrieve a user by their email address.
 
@@ -67,7 +69,7 @@ class UserServiceMeta(Protocol):
         username: str,
         email: str,
         password_hash: str,
-    ) -> "User":  # type: ignore[return-value]
+    ) -> User:
         """
         Create a new user.
 
@@ -79,23 +81,24 @@ class UserServiceMeta(Protocol):
         ...
 
     @abstractmethod
-    async def authenticate_user(self, email: EmailStr, password: str) -> Optional["User"]:  # type: ignore[return-value]
+    async def contact_user(self, user_id: UUID, contact_email: str) -> bool:
+        """
+        Add a contact to the current user.
+
+        :param user_id: ID of the user.
+        :param contact_email: ID of the contact.
+        :return: None
+        """
+        ...
+
+    @abstractmethod
+    async def authenticate_user(self, email: EmailStr, password: str) -> Optional[User]:
         """
         Authenticate a user by their email and password.
 
         :param email: The email address of the user.
         :param password: The password of the user.
         :return: The user if authenticated, otherwise None.
-        """
-        ...
-
-    @abstractmethod
-    async def get_user_pings(self, user_ids: Sequence[UUID]) -> dict:
-        """
-        Retrieve the last ping timestamp for a list of users.
-
-        :param user_ids: The IDs of the users.
-        :return: A dictionary mapping user IDs to their last ping timestamps.
         """
         ...
 

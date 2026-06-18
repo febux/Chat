@@ -7,14 +7,16 @@ from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
-from src.backend.app.utils.current_user import get_current_user
-from src.backend.schemas.users.user_get import User
-from src.backend.app.utils.auth import create_access_token
-from src.backend.common.exceptions.api.user_exceptions import UserAlreadyExistsError
-from src.backend.common.exceptions.api.password_exceptionx import PasswordMismatchError, IncorrectEmailOrPasswordError
 from src.backend.app.providers.user.provider_v1 import get_user_api_service
 from src.backend.app.services.user.meta import UserServiceMeta
+from src.backend.app.utils.auth import create_access_token
+from src.backend.app.utils.current_user import get_current_user
+from src.backend.common.exceptions.api.password_exceptionx import (
+    IncorrectEmailOrPasswordError, PasswordMismatchError)
+from src.backend.common.exceptions.api.user_exceptions import \
+    UserAlreadyExistsError
 from src.backend.schemas.users.user_auth import UserAuth
+from src.backend.schemas.users.user_get import User
 from src.backend.schemas.users.user_register import UserRegister
 from src.backend.utils.password import hash_password
 
@@ -98,10 +100,10 @@ async def login(
     :param service: User service provider.
     :return: Redirect to the home page.
     """
-    check = await service.authenticate_user(email=user_data.email, password=user_data.password)
-    if check is None:
+    user = await service.authenticate_user(email=user_data.email, password=user_data.password)
+    if user is None:
         raise IncorrectEmailOrPasswordError
-    access_token = create_access_token({"sub": str(check.id)})
+    access_token = create_access_token({"sub": str(user.id)})
     response.set_cookie(key="users_access_token", value=access_token, httponly=True)
     return {'access_token': access_token, 'refresh_token': None, 'message': 'Authorization successful!'}
 

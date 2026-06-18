@@ -8,7 +8,8 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import JSON, TIMESTAMP, UUID, Boolean, Column, ForeignKey, Integer, String, Table, Text, func
+from sqlalchemy import (JSON, TIMESTAMP, UUID, Boolean, Column, ForeignKey,
+                        Integer, String, Table, Text, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.backend.database import Base, BaseProps

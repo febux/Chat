@@ -2,7 +2,8 @@
 Base settings for YAML configuration class.
 """
 
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, YamlConfigSettingsSource
+from pydantic_settings import (BaseSettings, PydanticBaseSettingsSource,
+                               SettingsConfigDict, YamlConfigSettingsSource)
 
 
 class ConfigBase(BaseSettings):

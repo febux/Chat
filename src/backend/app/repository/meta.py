@@ -278,6 +278,25 @@ class AbstractRepository(ABC, Generic[_MODEL_TYPE]):
         await self.session.refresh(entity)
         return entity
 
+    async def bulk_create(
+        self,
+        items: Sequence[dict[str, Any]],
+    ) -> Sequence[_MODEL_TYPE]:
+        """
+        Create multiple entities in a single flush.
+
+        Unlike calling :meth:`create` in a loop (one INSERT + flush + refresh per
+        entity), this issues all INSERTs in one flush, avoiding an N+1 round-trip
+        when inserting several rows of the same model.
+
+        :param items: A sequence of keyword-argument dicts, one per entity.
+        :return: The newly created entities.
+        """
+        entities = [self.model(**item) for item in items]
+        self.session.add_all(entities)
+        await self.session.flush(entities)
+        return entities
+
     async def delete(self, **kwargs) -> None:
         """
         Delete entities from the repository based on the provided kwargs.

@@ -1,14 +1,16 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Body
+from fastapi import APIRouter, Body, Depends, Request
 from starlette.responses import JSONResponse
 
 from src.backend.app.models.enums import ChannelType
-from src.backend.schemas.channels.channel_create import ChannelWithMembersCreate
-from src.backend.app.providers.channel.provider_v1 import get_channel_api_service
+from src.backend.app.providers.channel.provider_v1 import \
+    get_channel_api_service
 from src.backend.app.services.channel.meta import ChannelServiceMeta
 from src.backend.app.utils.current_user import get_current_user
+from src.backend.schemas.channels.channel_create import \
+    ChannelWithMembersCreate
 from src.backend.schemas.channels.channel_get import Channel
 from src.backend.schemas.users.user_get import User
 
@@ -41,17 +43,23 @@ async def get_or_create_channel_between_users(
     service: Annotated[ChannelServiceMeta, Depends(get_channel_api_service)],
     user_ids: list[UUID] = Body(min_length=1),  # Принимаем список user_ids
 ):
-    channel = await service.find_channel_between_users(user_ids=user_ids)
+    # Включаем текущего пользователя в список участников, чтобы он был
+    # членом своего DM-канала, а поиск находил канал, в котором он состоит.
+    member_ids = list(dict.fromkeys([current_user.id, *user_ids]))
 
-    if not channel:
-        channel = await service.create_channel_with_members(
-            channel_type=ChannelType.DIRECT,
-            title=f"Direct channel between {user_ids[0]} and {user_ids[1]}",
-            created_by=current_user.id,
-            members=user_ids,
-        )
-        return JSONResponse(content=channel.to_dict(), status_code=201)
-    return JSONResponse(content=channel.to_dict(), status_code=200)
+    channel = await service.find_channel_between_users(user_ids=member_ids)
+
+    if channel is not None:
+        return JSONResponse(content=channel.to_dict(), status_code=200)
+
+    # create_channel_with_members already returns channel.to_dict() (a dict)
+    created = await service.create_channel_with_members(
+        channel_type=ChannelType.DIRECT,
+        title="Direct channel: " + ", ".join(str(uid) for uid in member_ids),
+        created_by=current_user.id,
+        members=member_ids,
+    )
+    return JSONResponse(content=created, status_code=201)
 
 
 
@@ -68,4 +76,5 @@ async def create_channel(
 ):
     return await service.create_channel_with_members(
         **channel_data.model_dump(),
+        created_by=current_user.id,
     )

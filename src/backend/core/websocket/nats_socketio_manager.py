@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -7,11 +7,10 @@ import socketio
 from fastapi import FastAPI, HTTPException
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTError
-from jwt import InvalidTokenError
 
-from src.backend.core.nats.client import NATSClient, nats_client_factory
 from src.backend.config.main import settings
 from src.backend.core.logger.logger_factory import logger_bind
+from src.backend.core.nats.client import NATSClient, nats_client_factory
 
 logger = logger_bind("NatsSocketIOManager")
 
@@ -140,7 +139,7 @@ class ConnectionManager:
             return str(user_id)
         except ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")
-        except (InvalidTokenError, JWTError):
+        except JWTError:
             raise HTTPException(status_code=401, detail="Invalid token")
         except Exception as e:
             logger.error(f"Token validation error: {e}")

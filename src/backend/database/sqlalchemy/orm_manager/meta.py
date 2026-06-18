@@ -3,22 +3,17 @@ Abstract repository manager.
 Interface for repository managers.
 """
 
-import pkgutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import Type
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.config.main import settings
-
 
 class RepositoryManagerMeta(ABC):
     """
     Interface for repository managers.
     """
-
-    _session: AsyncSession = None
 
     @property
     def session(self) -> AsyncSession:
@@ -66,18 +61,7 @@ class RepositoryManagerMeta(ABC):
         """
         ...
 
-    def _load_repo(self, name: str, repo_path: str | None = None) -> Type["AbstractRepository"]:  # type: ignore[type]
-        """
-        Load and return a repository instance.
-
-        :param name: The name of the repository.
-        :param repo_path: The path to the repository module.
-        """
-        if name in self._repos:
-            return self._repos[name]
-
-        return self._repo_register(name, repo_path or settings.app.REPO_PATH)
-
+    @abstractmethod
     def __getattr__(self, item) -> "AbstractRepository":  # type: ignore[type]
         """
         Dynamically load and return repository instances.
@@ -85,21 +69,4 @@ class RepositoryManagerMeta(ABC):
         :param item: The name of the repository to load.
         :return: The repository instance.
         """
-        repo = self._load_repo(item)
-        if repo is not None:
-            return repo(self.session)
-        raise AttributeError(f"'OrmRepositoryManager' object has no attribute '{item}'")
-
-    def auto_register_repos(
-        self,
-        repo_path: str | None = None,
-    ):
-        """
-        Automatically include repositories to repository manager.
-
-        :param repo_path: The path to the repositories.
-        :return: None
-        """
-        repo_path = repo_path or settings.app.REPO_PATH
-        for finder, name, ispkg in pkgutil.iter_modules([repo_path]):
-            self._repo_register(name, repo_path)
+        ...
