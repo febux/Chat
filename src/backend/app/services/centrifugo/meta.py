@@ -45,12 +45,12 @@ class CentrifugoServiceMeta(Protocol):
         self,
         user_id: UUID,
         channel_id: UUID,
-    ) -> None:
+    ) -> str:
         """
         Create a subscription token for a given user ID and channel ID.
 
         :param user_id: The ID of the user.
         :param channel_id: The ID of the channel.
-        :return: None
+        :return: The subscription token.
         """
         ...

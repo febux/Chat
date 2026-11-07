@@ -26,12 +26,12 @@ def create_centrifugo_token(user_id: str) -> str:
     )
 
 
-def create_subscription_token(user_id: str, channel_id: str) -> str:
+def create_subscription_token(user_id: str, channel: str) -> str:
     now = datetime.now(timezone.utc)
     claims = {
         "sub": user_id,
-        "channel": f"chat:{channel_id}",
-        "exp": now + timedelta(hours=1),  # 30 минут
+        "channel": channel,
+        "exp": now + timedelta(hours=1),
     }
 
     token = jwt.encode(

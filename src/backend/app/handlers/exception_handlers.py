@@ -96,25 +96,42 @@ def add_exceptions_handlers(app: FastAPI):
             content={"errors": errors, "message": "Invalid request", "path": str(request.url)},
         )
 
+    def _is_api_request(request: Request) -> bool:
+        """Return True for API routes (public or admin) that must receive JSON error responses."""
+        return request.url.path.startswith("/api/") or request.url.path.startswith("/admin/api/")
+
+    def _auth_json_response(exc: ClientAPIException) -> JSONResponse:
+        """Standard JSON error payload used for API authentication errors."""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": exc.error,
+                "detail": exc.detail,
+            },
+        )
+
     @app.exception_handler(TokenExpiredError)
     async def token_expired_exception_handler(request: Request, exc: TokenExpiredError):
-        # Возвращаем редирект на страницу /auth
+        if _is_api_request(request):
+            return _auth_json_response(exc)
         return RedirectResponse(url="/auth")
 
-    # Обработчик для TokenNoFound
     @app.exception_handler(TokenNotFoundError)
     async def token_not_found_exception_handler(request: Request, exc: TokenNotFoundError):
-        # Возвращаем редирект на страницу /auth
+        if _is_api_request(request):
+            return _auth_json_response(exc)
         return RedirectResponse(url="/auth")
 
     @app.exception_handler(UserNotFoundError)
     async def user_id_not_found_exception_handler(request: Request, exc: UserNotFoundError):
         """
-        Handles UserIdNotFoundError exceptions.
+        Handles UserNotFoundError exceptions.
 
         :param request: The FastAPI Request object.
-        :param exc: The UserIdNotFoundError instance.
-        :return: redirect to /auth
+        :param exc: The UserNotFoundError instance.
+        :return: JSONResponse for API routes, redirect to /auth for HTML routes.
         """
+        if _is_api_request(request):
+            return _auth_json_response(exc)
         return RedirectResponse(url="/auth")
 

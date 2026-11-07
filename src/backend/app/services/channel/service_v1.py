@@ -6,6 +6,8 @@ from typing import Optional, Sequence
 from uuid import UUID
 
 from src.backend.app.models.enums import ChannelType, MemberRole
+from src.backend.common.exceptions.api.client_exception import \
+    ClientAPIException
 from src.backend.core.logger.logger_factory import logger_bind
 from src.backend.database.sqlalchemy.orm_manager import RepositoryManagerMeta
 
@@ -87,7 +89,25 @@ class ChannelService:
         :param created_by: ID of the user who created the channel.
         :param members: IDs of the members in the channel.
         :return: The created channel.
+        :raises ClientAPIException: If any member ID does not correspond to an existing user.
         """
+        if members:
+            unknown_members: list[UUID] = []
+            for member_id in members:
+                user = await self.orm_manager.user.read_one(id=member_id)
+                if user is None:
+                    unknown_members.append(member_id)
+            if unknown_members:
+                raise ClientAPIException(
+                    loc=["body", "members"],
+                    msg=f"Unknown member IDs: {', '.join(str(uid) for uid in unknown_members)}",
+                    error_type="invalid_member",
+                )
+
+        # Ensure the creator is present as an admin; other requested members are regular members.
+        member_roles = {member_id: MemberRole.MEMBER for member_id in (members or [])}
+        member_roles[created_by] = MemberRole.ADMIN
+
         async with self.orm_manager.transaction():
             channel = await self.channel_repo.create(
                 type=channel_type,
@@ -95,13 +115,13 @@ class ChannelService:
                 created_by=created_by,
             )
             self.logger.info(f"Channel '{channel.id}' created with members.")
-            if members:
+            if member_roles:
                 await self.channel_member_repo.bulk_create([
                     {
                         "channel_id": channel.id,
                         "user_id": member_id,
-                        "role": MemberRole.MEMBER,
+                        "role": role,
                     }
-                    for member_id in members
+                    for member_id, role in member_roles.items()
                 ])
             return channel.to_dict()

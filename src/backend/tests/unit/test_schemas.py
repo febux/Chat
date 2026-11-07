@@ -35,7 +35,7 @@ class TestUserRegister:
         assert reg.email == "alice@example.com"
 
     def test_empty_password_rejected(self):
-        """min_length=1 from NonEmptyString IS enforced (empty rejected)."""
+        """Empty password is rejected by the Password constraint."""
         with pytest.raises(ValidationError):
             UserRegister(
                 email="alice@example.com",
@@ -44,17 +44,25 @@ class TestUserRegister:
                 username="alice",
             )
 
-    def test_non_empty_password_accepted(self):
-        """NOTE: Field(min_length=5) is silently overridden by
-        StringConstraints(min_length=1) from NonEmptyString — known bug.
-        A 1-char password is accepted (but shouldn't be)."""
-        reg = UserRegister(
-            email="alice@example.com",
-            password="x",
-            password_check="x",
-            username="alice",
-        )
-        assert reg.password == "x"
+    def test_short_password_rejected(self):
+        """Password must be at least 8 characters long."""
+        with pytest.raises(ValidationError):
+            UserRegister(
+                email="alice@example.com",
+                password="x",
+                password_check="x",
+                username="alice",
+            )
+
+    def test_short_username_rejected(self):
+        """Username must be at least 3 characters long."""
+        with pytest.raises(ValidationError):
+            UserRegister(
+                email="alice@example.com",
+                password="Secret123",
+                password_check="Secret123",
+                username="ab",
+            )
 
     def test_invalid_email_rejected(self):
         with pytest.raises(ValidationError):
@@ -77,8 +85,7 @@ class TestUserRegister:
             )
 
     def test_empty_username_rejected(self):
-        """NOTE: schema min_length=3 is NOT enforced due to NonEmptyString
-        overriding it (known bug). Empty username IS rejected (min_length=1)."""
+        """Username must be at least 3 characters long; empty is rejected."""
         with pytest.raises(ValidationError):
             UserRegister(
                 email="alice@example.com",
@@ -95,12 +102,13 @@ class TestUserAuth:
         auth = UserAuth(email="bob@example.com", password="Secret123")
         assert auth.email == "bob@example.com"
 
-    def test_short_password_accepted(self):
-        """Same NonEmptyString bug: Field(min_length=5) not enforced."""
-        auth = UserAuth(email="bob@example.com", password="abc")
-        assert auth.password == "abc"
+    def test_short_password_rejected(self):
+        """Password must be at least 8 characters long."""
+        with pytest.raises(ValidationError):
+            UserAuth(email="bob@example.com", password="abc")
 
     def test_empty_password_rejected(self):
+        """Empty password is rejected by the Password constraint."""
         with pytest.raises(ValidationError):
             UserAuth(email="bob@example.com", password="")
 

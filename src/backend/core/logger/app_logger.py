@@ -3,11 +3,11 @@ Logger custom class to customize loguru's behavior
 """
 
 import sys
+from _contextvars import ContextVar
 from multiprocessing import current_process
 from os.path import basename, splitext
 from threading import current_thread
 
-from _contextvars import ContextVar
 from loguru._colorizer import Colorizer
 from loguru._datetime import aware_now
 from loguru._get_frame import get_frame

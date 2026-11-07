@@ -8,7 +8,8 @@ from fastapi import Depends
 from starlette.requests import Request
 
 from src.backend.app.providers.db import DbSession
-from src.backend.database.sqlalchemy.orm_manager import OrmRepositoryManager, RepositoryManagerMeta
+from src.backend.database.sqlalchemy.orm_manager import (OrmRepositoryManager,
+                                                         RepositoryManagerMeta)
 
 
 async def get_orm_manager(

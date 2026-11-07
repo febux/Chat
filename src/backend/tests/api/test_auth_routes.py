@@ -49,12 +49,11 @@ class TestRegister:
         resp = client.post("/api/v1/register", json=payload)
         assert resp.status_code == 409
 
-    def test_non_empty_short_password_accepted(self, client, register_payload):
-        """NOTE: schema min_length=5 is NOT enforced (NonEmptyString bug).
-        A short non-empty password passes validation."""
+    def test_short_password_rejected(self, client, register_payload):
+        """Passwords shorter than 8 characters are rejected by the schema."""
         payload = {**register_payload, "password": "abc", "password_check": "abc"}
         resp = client.post("/api/v1/register", json=payload)
-        assert resp.status_code == 201
+        assert resp.status_code == 422
 
     def test_invalid_email_rejected(self, client, register_payload):
         payload = {**register_payload, "email": "not-an-email"}

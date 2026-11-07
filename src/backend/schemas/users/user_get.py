@@ -12,5 +12,6 @@ class User(BaseResponse):
     email: str = Field(..., description="User email")
     status: str | None = Field(None, description="User status")
     last_seen: int | None = Field(None, description="Last seen timestamp")
+    is_admin: bool = Field(False, description="Whether the user has admin privileges")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

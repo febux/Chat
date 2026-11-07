@@ -19,7 +19,8 @@ NonEmptyDict = Annotated[dict, Field(min_length=1)]
 NonEmptyList = Annotated[list, Field(min_length=1)]
 UserEmailEmpty = Annotated[EmailStr | None, StringConstraints(to_lower=True, strip_whitespace=True)]
 UserEmail = Annotated[EmailStr, StringConstraints(to_lower=True, strip_whitespace=True)]
-Username = Annotated[str, StringConstraints(min_length=4, max_length=32)]
+Username = Annotated[str, StringConstraints(min_length=3, max_length=50)]
+Password = Annotated[str, StringConstraints(min_length=8, max_length=50)]
 # Checking for a regular expression (e.g. hex string)
 ChecksumString = Annotated[str, StringConstraints(pattern="^[a-fA-F0-9]{64}$")]
 # Only from letters, without special characters and numbers

@@ -80,6 +80,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pyright>=1.1.407",
     "ty>=0.0.50",
+    "aiosqlite>=0.22.1",
 ]
 
 [project.scripts]

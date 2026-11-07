@@ -5,10 +5,10 @@ Users API routes for the application.
 from typing import Annotated, Sequence
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.status import HTTP_200_OK, HTTP_201_CREATED
+from starlette.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_404_NOT_FOUND
 
 from src.backend.app.providers.user.provider_v1 import get_user_api_service
 from src.backend.app.services.user.meta import UserServiceMeta
@@ -58,7 +58,10 @@ async def get_user_by_id(
     :param current_user: The current user making the request.
     :return: The user with the given ID.
     """
-    return await service.get_by_id(user_id)
+    user = await service.get_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="User not found")
+    return user
 
 
 @router.post(

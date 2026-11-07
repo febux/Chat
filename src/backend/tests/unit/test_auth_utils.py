@@ -89,12 +89,12 @@ class TestCreateSubscriptionToken:
     """Tests for create_subscription_token()."""
 
     def test_returns_valid_jwt(self):
-        token = create_subscription_token("user-789", "channel-abc")
+        token = create_subscription_token("user-789", "chat:channel-abc")
         assert isinstance(token, str)
         assert token.count(".") == 2
 
     def test_payload_has_channel_claim(self):
-        token = create_subscription_token("user-789", "channel-abc")
+        token = create_subscription_token("user-789", "chat:channel-abc")
         payload = jwt.decode(
             token,
             settings.app.CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY,
@@ -103,8 +103,17 @@ class TestCreateSubscriptionToken:
         assert payload["sub"] == "user-789"
         assert payload["channel"] == "chat:channel-abc"
 
+    def test_payload_has_personal_channel_claim(self):
+        token = create_subscription_token("user-789", "user#user-789")
+        payload = jwt.decode(
+            token,
+            settings.app.CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY,
+            algorithms=["HS256"],
+        )
+        assert payload["channel"] == "user#user-789"
+
     def test_expiry_is_one_hour(self):
-        token = create_subscription_token("user-789", "channel-abc")
+        token = create_subscription_token("user-789", "chat:channel-abc")
         payload = jwt.decode(
             token,
             settings.app.CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY,

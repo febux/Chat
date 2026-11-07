@@ -14,16 +14,31 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Annotated, Any, Sequence
+from typing import Any, Sequence
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, FastAPI
 from starlette.testclient import TestClient
 
+from src.backend.app.api.admin.v1.users.routes import \
+    router as admin_users_router
+from src.backend.app.api.admin.v2.maintenance.routes import \
+    router as admin_maintenance_router
 from src.backend.app.api.public.v1.base.routes import router as base_router
+from src.backend.app.api.public.v1.centrifugo.routes import \
+    router as centrifugo_router
+from src.backend.app.api.public.v1.channel.routes import \
+    router as channel_router
 from src.backend.app.api.public.v1.users.routes import router as users_router
+from src.backend.app.providers.base.provider_v2 import get_service_api_service
+from src.backend.app.providers.centrifugo.provider_v1 import \
+    get_centrifugo_api_service
+from src.backend.app.providers.channel.provider_v1 import \
+    get_channel_api_service
 from src.backend.app.providers.user.provider_v1 import get_user_api_service
+from src.backend.app.services.centrifugo.service_v1 import CentrifugoService
+from src.backend.app.services.channel.service_v1 import ChannelService
 from src.backend.app.utils.current_user import get_current_user
 from src.backend.schemas.users.user_get import User
 
@@ -80,6 +95,7 @@ class FakeUserRepo:
             created_at=fields.get("created_at", datetime.now(timezone.utc)),
             updated_at=fields.get("updated_at", datetime.now(timezone.utc)),
             is_active=True,
+            deleted_at=None,
             **{k: v for k, v in fields.items() if k not in ("id", "created_at", "updated_at")},
         )
         self._users[uid] = record
@@ -125,10 +141,60 @@ class FakeUserContactRepo:
         return SimpleNamespace(user_id=pair[0], contact_id=pair[1])
 
 
+class FakeChannelRepo:
+    """In-memory channel repository used by channel service tests."""
+
+    def __init__(self) -> None:
+        self._channels: list[SimpleNamespace] = []
+
+    async def create(self, **fields) -> SimpleNamespace:
+        record = SimpleNamespace(
+            id=fields.get("id", uuid4()),
+            type=fields.get("type"),
+            title=fields.get("title"),
+            created_by=fields.get("created_by"),
+            created_at=datetime.now(timezone.utc),
+        )
+        record.to_dict = lambda: {
+            "id": str(record.id),
+            "type": record.type.value if record.type is not None else None,
+            "title": record.title,
+            "created_by": str(record.created_by),
+            "created_at": record.created_at.isoformat(),
+        }
+        self._channels.append(record)
+        return record
+
+
+class FakeChannelMemberRepo:
+    """In-memory channel member repository used by channel service tests."""
+
+    def __init__(self) -> None:
+        self._members: list[SimpleNamespace] = []
+
+    async def bulk_create(self, items: Sequence[dict[str, Any]]) -> list[SimpleNamespace]:
+        records = [SimpleNamespace(**item) for item in items]
+        self._members.extend(records)
+        return records
+
+    async def read_one(self, **kwargs) -> SimpleNamespace | None:
+        channel_id = kwargs.get("channel_id")
+        user_id = kwargs.get("user_id")
+        for member in self._members:
+            if str(member.channel_id) == str(channel_id) and str(member.user_id) == str(user_id):
+                return member
+        return None
+
+    async def get_all_channel_members_by_channel_id(self, channel_id: UUID) -> list[SimpleNamespace]:
+        return [m for m in self._members if str(m.channel_id) == str(channel_id)]
+
+
 class FakeOrmManager:
     def __init__(self) -> None:
         self.user = FakeUserRepo()
         self.user_contact = FakeUserContactRepo()
+        self.channel = FakeChannelRepo()
+        self.channel_member = FakeChannelMemberRepo()
 
     @asynccontextmanager
     async def transaction(self):
@@ -155,6 +221,7 @@ class FakeUserService:
             email=fields.get("email", "test@example.com"),
             status=fields.get("status"),
             last_seen=fields.get("last_seen"),
+            is_admin=fields.get("is_admin", False),
             created_at=fields.get("created_at", now),
             updated_at=fields.get("updated_at", now),
         )
@@ -207,6 +274,16 @@ class FakeUserService:
         self.ping_called.append(user_id)
 
 
+class FakeBaseApiService:
+    """Lightweight stub implementing BaseApiServiceMeta for admin v2 tests."""
+
+    async def healthcheck(self, request) -> dict:
+        return {"status": "healthy"}
+
+    async def system_metrics(self, request) -> dict:
+        return {"metrics": "ok"}
+
+
 # ---------------------------------------------------------------------------
 #  Test data helpers
 # ---------------------------------------------------------------------------
@@ -229,10 +306,31 @@ def sample_user(sample_user_id: UUID) -> User:
     )
 
 
+@pytest.fixture
+def sample_admin_user(sample_user_id: UUID) -> User:
+    """Authenticated user with admin privileges for admin route tests."""
+    now = datetime.now(timezone.utc)
+    return User(
+        id=sample_user_id,
+        username="admin",
+        email="admin@example.com",
+        status=None,
+        last_seen=None,
+        is_admin=True,
+        created_at=now,
+        updated_at=now,
+    )
+
+
 # ---------------------------------------------------------------------------
 #  Test app factory with dependency overrides
 # ---------------------------------------------------------------------------
-def _build_test_app(fake_service: FakeUserService, current_user: User | None = None) -> FastAPI:
+def _build_test_app(
+    fake_service: FakeUserService,
+    current_user: User | None = None,
+    channel_orm_manager: FakeOrmManager | None = None,
+    centrifugo_orm_manager: FakeOrmManager | None = None,
+) -> FastAPI:
     from src.backend.app.handlers.exception_handlers import \
         add_exceptions_handlers
 
@@ -240,15 +338,29 @@ def _build_test_app(fake_service: FakeUserService, current_user: User | None = N
     api = APIRouter(prefix="/api/v1")
     api.include_router(base_router)
     api.include_router(users_router, prefix="/users")
+    api.include_router(centrifugo_router, prefix="/centrifugo")
+    if channel_orm_manager is not None:
+        api.include_router(channel_router, prefix="/channels")
     app.include_router(api)
+
+    # Register admin API routes under the same test app.
+    app.include_router(admin_users_router, prefix="/admin/api/v1/users")
+    app.include_router(admin_maintenance_router, prefix="/admin/api/v2")
 
     # Register exception handlers so ClientAPIException → proper HTTP status
     add_exceptions_handlers(app)
 
     app.dependency_overrides[get_user_api_service] = lambda: fake_service
+    app.dependency_overrides[get_service_api_service] = lambda: FakeBaseApiService()
 
     if current_user is not None:
         app.dependency_overrides[get_current_user] = lambda: current_user
+
+    if channel_orm_manager is not None:
+        app.dependency_overrides[get_channel_api_service] = lambda: ChannelService(channel_orm_manager)
+
+    if centrifugo_orm_manager is not None:
+        app.dependency_overrides[get_centrifugo_api_service] = lambda: CentrifugoService(centrifugo_orm_manager)
 
     return app
 
@@ -270,3 +382,37 @@ def unauth_client(fake_service: FakeUserService) -> TestClient:
     """TestClient WITHOUT get_current_user override — tests auth-guard behaviour."""
     app = _build_test_app(fake_service, current_user=None)
     return TestClient(app)
+
+
+@pytest.fixture
+def admin_client(fake_service: FakeUserService, sample_admin_user: User) -> TestClient:
+    """TestClient with an admin user as the authenticated current user."""
+    app = _build_test_app(fake_service, current_user=sample_admin_user)
+    return TestClient(app)
+
+
+@pytest.fixture
+def centrifugo_orm() -> FakeOrmManager:
+    """Fake ORM manager with channel_member populated for centrifugo tests."""
+    return FakeOrmManager()
+
+
+@pytest.fixture
+def centrifugo_service(centrifugo_orm: FakeOrmManager) -> CentrifugoService:
+    """Real CentrifugoService backed by the fake ORM manager."""
+    return CentrifugoService(centrifugo_orm)
+
+
+@pytest.fixture
+def centrifugo_client(
+    fake_service: FakeUserService,
+    sample_user: User,
+    centrifugo_orm: FakeOrmManager,
+) -> TestClient:
+    """Authenticated TestClient wired to the real CentrifugoService + fake repos."""
+    app = _build_test_app(
+        fake_service,
+        current_user=sample_user,
+        centrifugo_orm_manager=centrifugo_orm,
+    )
+    return TestClient(app, raise_server_exceptions=False)

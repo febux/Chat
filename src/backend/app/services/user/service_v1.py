@@ -56,6 +56,7 @@ class UserService:
             id=user.id,
             username=user.username,
             email=user.email,
+            is_admin=getattr(user, "is_admin", False),
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -115,35 +116,41 @@ class UserService:
         """
         Retrieve a user by its ID.
 
+        Soft-deleted users are excluded from the result.
+
         :param user_id: The ID of the user.
         :return: The user with the specified ID, or None if not found.
         """
-        user = await self.user_repo.read_one(id=user_id)
+        user = await self.user_repo.read_one(id=user_id, deleted_at=None)
         return self._to_user_schema(user) if user else None
 
     async def get_by_email(self, email: str) -> Optional[User]:
         """
         Retrieve a user by their email address.
 
+        Soft-deleted users are excluded so that a deleted email can be reused
+        for a new registration.
+
         :param email: The email address of the user.
         :return: The user with the specified email address, or None if not found.
         """
-        user = await self.user_repo.read_one(email=email)
+        user = await self.user_repo.read_one(email=email, deleted_at=None)
         return self._to_user_schema(user) if user else None
 
     async def authenticate_user(self, email: EmailStr, password: str) -> Optional[User]:
         """
         Authenticate a user by email and password.
 
-        The raw ORM model is fetched directly from the repository because
-        password verification needs ``password_hash``, which the public schema
-        intentionally does not expose. Only a clean schema is returned.
+        Soft-deleted users cannot authenticate. The raw ORM model is fetched
+        directly from the repository because password verification needs
+        ``password_hash``, which the public schema intentionally does not expose.
+        Only a clean schema is returned.
 
         :param email: The email address of the user.
         :param password: The plaintext password to verify.
         :return: The authenticated user schema, or None if credentials are invalid.
         """
-        user = await self.user_repo.read_one(email=email)
+        user = await self.user_repo.read_one(email=email, deleted_at=None)
         if not user or await verify_password(pw=password, digest=user.password_hash) is False:
             return None
         return self._to_user_schema(user)

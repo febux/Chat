@@ -51,13 +51,13 @@ class TestGetUserById:
         data = resp.json()
         assert data["email"] == "bob@example.com"
 
-    def test_get_nonexistent_user_returns_500(self, fake_service, sample_user):
-        """get_by_id returns None; route has response_model=User which rejects None.
-        This is a known issue — the route should return 404, not 500."""
+    def test_get_nonexistent_user_returns_404(self, fake_service, sample_user):
+        """get_by_id returns None; route should return 404 with JSON detail."""
         app = _build_test_app(fake_service, current_user=sample_user)
         client_no_raise = TestClient(app, raise_server_exceptions=False)
         resp = client_no_raise.get(f"/api/v1/users/{uuid4()}")
-        assert resp.status_code == 500
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "User not found"
 
     def test_invalid_uuid_returns_422(self, client):
         resp = client.get("/api/v1/users/not-a-uuid")

@@ -10,10 +10,11 @@ from starlette.requests import Request
 
 from src.backend.app.providers.user.provider_v1 import get_user_api_service
 from src.backend.app.services.user.meta import UserServiceMeta
+from src.backend.app.utils.admin_auth import require_admin_user
 from src.backend.app.utils.common_query_params import CommonQueryParams
 from src.backend.schemas.users.user_get import User
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin_user)])
 
 
 @router.get(

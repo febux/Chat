@@ -181,7 +181,7 @@ services:
         echo "requirepass ${REDIS_DEFAULT_PASSWORD}" >> /usr/local/etc/redis/redis.conf &&
         echo "appendonly yes" >> /usr/local/etc/redis/redis.conf &&
         echo "appendfsync everysec" >> /usr/local/etc/redis/redis.conf &&
-        echo "user default on nopass ~* +@all" > /usr/local/etc/redis/users.acl &&
+        echo "user default on >${REDIS_DEFAULT_PASSWORD} ~* +@all" > /usr/local/etc/redis/users.acl &&
         echo "user ${REDIS_USERNAME} on >${REDIS_PASSWORD} ~* &* +@all" >> /usr/local/etc/redis/users.acl &&
         redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
       '
@@ -192,7 +192,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_DEFAULT_PASSWORD}", "ping" ]
       interval: 3s
       timeout: 3s
       retries: 5

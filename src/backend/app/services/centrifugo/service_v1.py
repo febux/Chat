@@ -5,6 +5,8 @@ Centrifugo service implementation.
 from uuid import UUID
 
 import httpx
+from fastapi import HTTPException
+from starlette.status import HTTP_403_FORBIDDEN
 
 from src.backend.app.utils.auth import (create_centrifugo_token,
                                         create_subscription_token)
@@ -59,6 +61,7 @@ class CentrifugoService:
     ):
         self.orm_manager = orm_manager
         self.logger = logger_bind("CentrifugoService")
+        self.channel_member_repo = self.orm_manager.channel_member
 
     async def create_centrifugo_token(
         self,
@@ -112,6 +115,24 @@ class CentrifugoService:
         except httpx.HTTPError as exc:
             self.logger.error(f"Failed to publish message to channel {channel_id}: {exc}")
 
+    async def is_channel_member(
+        self,
+        channel_id: UUID,
+        user_id: UUID,
+    ) -> bool:
+        """
+        Check whether a user is a member of the given channel.
+
+        :param channel_id: The ID of the channel.
+        :param user_id: The ID of the user.
+        :return: True if the user is a member of the channel, False otherwise.
+        """
+        membership = await self.channel_member_repo.read_one(
+            channel_id=channel_id,
+            user_id=user_id,
+        )
+        return membership is not None
+
     async def create_subscription_token(
         self,
         user_id: UUID,
@@ -120,8 +141,30 @@ class CentrifugoService:
         """
         Create a subscription token for a given user ID and channel ID.
 
+        The caller must be a member of the requested channel. Personal
+        Centrifugo channels in the ``user#<id>`` namespace are allowed only
+        for the matching user.
+
         :param user_id: The ID of the user.
         :param channel_id: The ID of the channel.
-        :return: None
+        :return: The Centrifugo subscription token.
+        :raises HTTPException: If the user is not allowed to subscribe.
         """
-        return create_subscription_token(str(user_id), str(channel_id))
+        channel_value = str(channel_id)
+
+        # Centrifugo personal channel namespace: only the owner may subscribe.
+        if channel_value.startswith("user#"):
+            personal_user_id = channel_value.split("#", 1)[1]
+            if str(user_id) != personal_user_id:
+                raise HTTPException(
+                    status_code=HTTP_403_FORBIDDEN,
+                    detail="User is not allowed to access this personal channel",
+                )
+            return create_subscription_token(str(user_id), channel_value)
+
+        if not await self.is_channel_member(channel_id, user_id):
+            raise HTTPException(
+                status_code=HTTP_403_FORBIDDEN,
+                detail="User is not a member of this channel",
+            )
+        return create_subscription_token(str(user_id), f"chat:{channel_id}")

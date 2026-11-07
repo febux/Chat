@@ -11,8 +11,9 @@ from starlette.responses import Response
 
 from src.backend.app.providers.base.provider_v2 import get_service_api_service
 from src.backend.app.services.base.meta import BaseApiServiceMeta
+from src.backend.app.utils.admin_auth import require_admin_user
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin_user)])
 
 
 @router.get(
